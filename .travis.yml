@@ -10,6 +10,8 @@ go:
 
 before_script:
   - go get -t
+  - docker-compose up -d
+  - waitforit -file=./waitforit.json
 
 script:
   - go test -v -race
