@@ -20,7 +20,7 @@ script:
   - go test -v -race
 
   - go build -ldflags "-s -w" -o build/package/traffic cmd/traffic/traffic.go
-  - docker build build/package/ -t $REGISTRY_IMAGE
+  - docker build build/package/ -t $DOCKER_REPO
 
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
     docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
