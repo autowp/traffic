@@ -10,6 +10,7 @@ go:
 
 before_script:
   - go get -t
+  - sudo service mysql stop
   - docker-compose up -d
   - waitforit -file=./waitforit.json
 
