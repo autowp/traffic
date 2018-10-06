@@ -14,7 +14,7 @@ before_script:
   - docker-compose up -d
   - wget -q -O ./waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.0/waitforit-linux_amd64
   - chmod +x ./waitforit
-  - waitforit -file=./waitforit.json
+  - ./waitforit -file=./waitforit.json
 
 script:
   - go test -v -race
