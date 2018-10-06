@@ -22,6 +22,7 @@ script:
   - go build -ldflags "-s -w" -o build/package/traffic cmd/traffic/traffic.go
   - docker build build/package/ -t $DOCKER_REPO
 
+after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
     docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
     docker push $DOCKER_REPO;
