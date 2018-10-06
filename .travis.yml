@@ -1,0 +1,25 @@
+sudo: required
+
+language: go
+
+services:
+  - docker
+
+go:
+  - "1.10"
+
+before_script:
+  - go get -t
+
+script:
+  - go test -v -race
+
+  - go build -ldflags "-s -w" -o build/package/traffic cmd/traffic/traffic.go
+  - docker build build/package/ -t $REGISTRY_IMAGE
+
+  - if [ "$TRAVIS_BRANCH" == "master" ]; then
+    docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+    docker push $DOCKER_REPO;
+    fi
+
+  

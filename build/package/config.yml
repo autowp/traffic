@@ -1,0 +1,9 @@
+---
+input:
+  address: amqp://guest:guest@rabbitmq:5672/
+  queue: input
+rollbar:
+  token: 
+  environment: development
+  period: 1m
+dsn: root:password@tcp(localhost)/traffic?charset=utf8mb4&parseTime=true&loc=UTC
