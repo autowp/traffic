@@ -15,11 +15,10 @@ before_script:
   - wget -q -O ./waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.0/waitforit-linux_amd64
   - chmod +x ./waitforit
   - source test.env
-  - ./waitforit -address tcp://$TRAFFIC_MYSQL_HOST:$TRAFFIC_MYSQL_PORT -timeout 30 || travis_terminate 1;
   - ./waitforit -address tcp://$TRAFFIC_INPUT_HOST:$TRAFFIC_INPUT_PORT -timeout 30 || travis_terminate 1;
+  - ./waitformysql.sh
 
 script:
-  - sleep 20
   - go test -v -race || travis_terminate 1;
 
   - go build -ldflags "-s -w" -o build/package/traffic cmd/traffic/traffic.go || travis_terminate 1;
