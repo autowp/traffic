@@ -19,7 +19,7 @@ before_script:
   - ./waitforit -address tcp://$TRAFFIC_INPUT_HOST:$TRAFFIC_INPUT_PORT -timeout 30 || travis_terminate 1;
 
 script:
-  - sleep 30
+  - sleep 20
   - go test -v -race || travis_terminate 1;
 
   - go build -ldflags "-s -w" -o build/package/traffic cmd/traffic/traffic.go || travis_terminate 1;
