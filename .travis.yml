@@ -17,6 +17,7 @@ before_script:
   - ./waitforit -file=./waitforit.json
 
 script:
+  - source test.env
   - go test -v -race
 
   - go build -ldflags "-s -w" -o build/package/traffic cmd/traffic/traffic.go
