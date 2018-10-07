@@ -23,13 +23,14 @@ type Service struct {
 }
 
 // NewService constructor
-func NewService(config Config) *Service {
+func NewService(config Config) (*Service, error) {
 
 	logger := NewLogger(config.Rollbar)
 
 	db, err := sql.Open("mysql", config.DSN)
 	if err != nil {
 		logger.Fatal(err)
+		return nil, err
 	}
 
 	s := &Service{
@@ -67,7 +68,7 @@ func NewService(config Config) *Service {
 
 	s.gc()
 
-	return s
+	return s, nil
 }
 
 // Close Destructor

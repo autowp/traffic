@@ -4,6 +4,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestService(t *testing.T) {
@@ -21,7 +23,9 @@ func TestService(t *testing.T) {
 		DSN: "root:password@tcp(localhost)/traffic?charset=utf8mb4&parseTime=true&loc=UTC",
 	}
 
-	s := NewService(config)
+	s, err := NewService(config)
+
+	assert.Equal(t, nil, err)
 
 	s.pushHit(InputMessage{
 		IP:        net.IPv4(192, 168, 0, 1),
