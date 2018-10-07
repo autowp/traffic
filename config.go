@@ -1,12 +1,8 @@
 package traffic
 
 import (
-	"flag"
-	"fmt"
-	"io/ioutil"
 	"log"
-
-	yaml "gopkg.in/yaml.v2"
+	"os"
 )
 
 // Config Application config definition
@@ -18,23 +14,20 @@ type Config struct {
 
 // LoadConfig LoadConfig
 func LoadConfig() Config {
-	var configFile string
-	flag.StringVar(&configFile, "config", "config.yml", "path to config file")
 
-	flag.Parse()
-
-	fmt.Printf("Run with config `%s`\n", configFile)
-
-	content, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		log.Fatalf("Failed to read config file: %v", err)
-	}
-
-	config := Config{}
-
-	err = yaml.Unmarshal(content, &config)
-	if err != nil {
-		log.Fatalf("Failed to parse config: %v", err)
+	config := Config{
+		Input: InputConfig{
+			Address: "amqp://guest:guest@" + os.Getenv("TRAFFIC_INPUT_HOST") + ":" + os.Getenv("TRAFFIC_INPUT_PORT") + "/",
+			Queue:   os.Getenv("TRAFFIC_INPUT_QUEUE"),
+		},
+		Rollbar: RollbarConfig{
+			Token:       os.Getenv("TRAFFIC_ROLLBAR_TOKEN"),
+			Environment: os.Getenv("TRAFFIC_ROLLBAR_ENVIRONMENT"),
+			Period:      os.Getenv("TRAFFIC_ROLLBAR_PERIOD"),
+		},
+		DSN: os.Getenv("TRAFFIC_MYSQL_USERNAME") + ":" + os.Getenv("TRAFFIC_MYSQL_PASSWORD") +
+			"@tcp(" + os.Getenv("TRAFFIC_MYSQL_HOST") + ":" + os.Getenv("TRAFFIC_MYSQL_PORT") + ")/" +
+			os.Getenv("TRAFFIC_MYSQL_DBNAME") + "?charset=utf8mb4&parseTime=true&loc=UTC",
 	}
 
 	return config
