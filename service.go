@@ -33,6 +33,8 @@ func NewService(config Config) (*Service, error) {
 		return nil, err
 	}
 
+	db.SetMaxIdleConns(0)
+
 	s := &Service{
 		config: config,
 		log:    logger,
