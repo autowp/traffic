@@ -10,18 +10,7 @@ import (
 
 func TestService(t *testing.T) {
 
-	config := Config{
-		Input: InputConfig{
-			Address: "amqp://guest:guest@localhost:5672/",
-			Queue:   "input",
-		},
-		Rollbar: RollbarConfig{
-			Token:       "",
-			Environment: "testing",
-			Period:      "1m",
-		},
-		DSN: "root:password@tcp(localhost)/traffic?charset=utf8mb4&parseTime=true&loc=UTC",
-	}
+	config := LoadConfig()
 
 	s, err := NewService(config)
 
