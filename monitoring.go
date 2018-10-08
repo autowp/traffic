@@ -74,3 +74,33 @@ func (s *Monitoring) ClearIP(ip net.IP) error {
 
 	return nil
 }
+
+// ListOfTopIP ListOfTopIP
+func (s *Monitoring) ListOfTopIP(limit int) ([]net.IP, error) {
+
+	rows, err := s.db.Query(`
+		SELECT ip, SUM(count) AS count
+		FROM ip_monitoring4
+		WHERE day_date = CURDATE()
+		GROUP BY ip
+		ORDER count DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []net.IP{}
+
+	for rows.Next() {
+		var ip net.IP
+		if err := rows.Scan(&ip); err != nil {
+			return nil, err
+		}
+
+		result = append(result, ip)
+	}
+
+	return result, nil
+}

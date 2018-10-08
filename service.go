@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql" // enable mysql driver
@@ -22,6 +23,42 @@ type Service struct {
 	Whitelist  *Whitelist
 	Ban        *Ban
 	Monitoring *Monitoring
+}
+
+// AutobanProfile AutobanProfile
+type AutobanProfile struct {
+	Limit  int
+	Reason string
+	Group  []string
+	Time   time.Duration
+}
+
+// AutobanProfiles AutobanProfiles
+var AutobanProfiles = []AutobanProfile{
+	AutobanProfile{
+		Limit:  4000,
+		Reason: "daily limit",
+		Group:  []string{},
+		Time:   time.Hour * 10 * 24,
+	},
+	AutobanProfile{
+		Limit:  1800,
+		Reason: "hourly limit",
+		Group:  []string{"hour"},
+		Time:   time.Hour * 5 * 24,
+	},
+	AutobanProfile{
+		Limit:  600,
+		Reason: "ten min limit",
+		Group:  []string{"hour", "tenminute"},
+		Time:   time.Hour * 24,
+	},
+	AutobanProfile{
+		Limit:  150,
+		Reason: "min limit",
+		Group:  []string{"hour", "tenminute", "minute"},
+		Time:   time.Hour * 12,
+	},
 }
 
 // NewService constructor
@@ -122,27 +159,13 @@ func (s *Service) gc() {
 
 func (s *Service) autoWhitelist() error {
 
-	rows, err := s.db.Query(`
-		SELECT ip, SUM(count) AS count
-		FROM ip_monitoring4
-		WHERE day_date = CURDATE()
-		GROUP BY ip
-		ORDER count DESC
-		LIMIT 1000
-	`)
+	ips, err := s.Monitoring.ListOfTopIP(1000)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var ip net.IP
-		if err := rows.Scan(&ip); err != nil {
-			return err
-		}
-
-		err := s.autoWhitelistIP(ip)
-		if err != nil {
+	for _, ip := range ips {
+		if err := s.autoWhitelistIP(ip); err != nil {
 			return err
 		}
 	}
@@ -185,6 +208,56 @@ func (s *Service) autoWhitelistIP(ip net.IP) error {
 	}
 
 	fmt.Println(" whitelisted")
+
+	return nil
+}
+
+func (s *Service) autoBanByProfile(profile AutobanProfile) error {
+	group := append([]string{"ip"}, profile.Group...)
+
+	rows, err := s.db.Query(`
+		SELECT ip, SUM(count) AS c
+		FROM ip_monitoring4
+		WHERE day_date = CURDATE()
+		GROUP BY `+strings.Join(group, ", ")+`
+		HAVING c > ?
+		LIMIT 1000
+	`, profile.Limit)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var ip net.IP
+		if err := rows.Scan(&ip); err != nil {
+			return err
+		}
+
+		exists, err := s.Whitelist.Exists(ip)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+
+		fmt.Printf("%s %v\n", profile.Reason, ip)
+
+		if err := s.Ban.Add(ip, profile.Time, 9, profile.Reason); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) autoBan() error {
+	for _, profile := range AutobanProfiles {
+		if err := s.autoBanByProfile(profile); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
