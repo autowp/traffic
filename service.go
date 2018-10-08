@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql" // enable mysql driver
@@ -20,6 +19,7 @@ type Service struct {
 	log        *Logger
 	db         *sql.DB
 	stopTicker chan struct{}
+	Whitelist  *Whitelist
 }
 
 // NewService constructor
@@ -33,10 +33,17 @@ func NewService(config Config) (*Service, error) {
 		return nil, err
 	}
 
+	whitelist, err := NewWhitelist(db)
+	if err != nil {
+		logger.Fatal(err)
+		return nil, err
+	}
+
 	s := &Service{
-		config: config,
-		log:    logger,
-		db:     db,
+		config:    config,
+		log:       logger,
+		db:        db,
+		Whitelist: whitelist,
 	}
 
 	s.input = NewInput(config.Input, func(msg InputMessage) {
@@ -130,6 +137,35 @@ func (s *Service) gc() int64 {
 	return deletedIP + deletedBans
 }
 
+func (s *Service) clearIPMonitoring(ip net.IP) error {
+	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4 WHERE ip = INET6_ATON(?)")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(ip.String())
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	return nil
+}
+
+func (s *Service) unban(ip net.IP) error {
+
+	stmt, err := s.db.Prepare("DELETE FROM banned_ip WHERE ip = INET6_ATON(?)")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(ip.String())
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	return nil
+}
+
 func (s *Service) autoWhitelist() error {
 
 	rows, err := s.db.Query(`
@@ -165,7 +201,7 @@ func (s *Service) autoWhitelistIP(ip net.IP) error {
 
 	fmt.Print(ipText + ": ")
 
-	inWhitelist, err := s.inWhitelist(ip)
+	inWhitelist, err := s.Whitelist.exists(ip)
 	if err != nil {
 		return err
 	}
@@ -175,14 +211,14 @@ func (s *Service) autoWhitelistIP(ip net.IP) error {
 		return nil
 	}
 
-	whitelist, desc := s.mustBeWhitelisted(ip)
+	match, desc := s.Whitelist.MatchAuto(ip)
 
-	if !whitelist {
+	if !match {
 		fmt.Println("")
 		return nil
 	}
 
-	if err := s.addToWhitelist(ip, desc); err != nil {
+	if err := s.Whitelist.add(ip, desc); err != nil {
 		return err
 	}
 
@@ -195,103 +231,6 @@ func (s *Service) autoWhitelistIP(ip net.IP) error {
 	}
 
 	fmt.Println(" whitelisted")
-
-	return nil
-}
-
-func (s *Service) mustBeWhitelisted(ip net.IP) (bool, string) {
-
-	ipText := ip.String()
-
-	host := "unknown.host"
-	hosts, err := net.LookupAddr(ipText)
-	if err == nil {
-		if len(hosts) > 0 {
-			host = hosts[0]
-		}
-	}
-
-	fmt.Print(host)
-
-	ipWithDashes := strings.Replace(ipText, ".", "-", -1)
-
-	msnHost := "msnbot-" + ipWithDashes + ".search.msn.com"
-	yandexComHost := "spider-" + ipWithDashes + ".yandex.com"
-	googlebotHost := "crawl-" + ipWithDashes + ".googlebot.com"
-	if host == msnHost {
-		return true, "msnbot autodetect"
-	}
-	if host == yandexComHost {
-		return true, "yandex.com autodetect"
-	}
-	if host == googlebotHost {
-		return true, "googlebot autodetect"
-	}
-
-	return false, ""
-}
-
-func (s *Service) addToWhitelist(ip net.IP, desc string) error {
-	stmt, err := s.db.Prepare(`
-		INSERT INTO ip_whitelist (ip, description)
-		VALUES (?, ?)
-	`)
-	if err != nil {
-		return err
-	}
-
-	_, err = stmt.Exec(ip, desc)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	return nil
-}
-
-func (s *Service) clearIPMonitoring(ip net.IP) error {
-	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4 WHERE ip = INET6_ATON(?)")
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Exec(ip.String())
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	return nil
-}
-
-func (s *Service) inWhitelist(ip net.IP) (bool, error) {
-	var exists bool
-	err := s.db.QueryRow(`
-		SELECT 1
-		FROM ip_whitelist
-		WHERE ip = INET6_ATON(?)
-	`, ip.String()).Scan(&exists)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return false, err
-		}
-
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func (s *Service) unban(ip net.IP) error {
-
-	stmt, err := s.db.Prepare("DELETE FROM banned_ip WHERE ip = INET6_ATON(?)")
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Exec(ip.String())
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
 
 	return nil
 }
