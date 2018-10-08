@@ -20,6 +20,8 @@ type Service struct {
 	db         *sql.DB
 	stopTicker chan struct{}
 	Whitelist  *Whitelist
+	Ban        *Ban
+	Monitoring *Monitoring
 }
 
 // NewService constructor
@@ -39,15 +41,32 @@ func NewService(config Config) (*Service, error) {
 		return nil, err
 	}
 
+	ban, err := NewBan(db)
+	if err != nil {
+		logger.Fatal(err)
+		return nil, err
+	}
+
+	monitoring, err := NewMonitoring(db)
+	if err != nil {
+		logger.Fatal(err)
+		return nil, err
+	}
+
 	s := &Service{
-		config:    config,
-		log:       logger,
-		db:        db,
-		Whitelist: whitelist,
+		config:     config,
+		log:        logger,
+		db:         db,
+		Whitelist:  whitelist,
+		Ban:        ban,
+		Monitoring: monitoring,
 	}
 
 	s.input = NewInput(config.Input, func(msg InputMessage) {
-		s.pushHit(msg)
+		err := s.Monitoring.Add(msg.IP, msg.Timestamp)
+		if err != nil {
+			s.log.Warning(err)
+		}
 	}, func(err error) {
 		s.log.Warning(err)
 	})
@@ -84,86 +103,21 @@ func (s *Service) Close() {
 	s.db.Close()
 }
 
-func (s *Service) pushHit(msg InputMessage) {
-	stmt, err := s.db.Prepare(`
-		INSERT INTO ip_monitoring4 (day_date, hour, tenminute, minute, ip, count)
-		VALUES (?, HOUR(?), FLOOR(MINUTE(?)/10), MINUTE(?), INET6_ATON(?), 1)
-		ON DUPLICATE KEY UPDATE count=count+1
-	`)
+func (s *Service) gc() {
+
+	deletedIP, err := s.Monitoring.GC()
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
+	fmt.Printf("`%v` items of monitoring deleted\n", deletedIP)
 
-	dateStr := msg.Timestamp.Format("2006-01-02 15:04:05")
-	_, err = stmt.Exec(dateStr, dateStr, dateStr, dateStr, msg.IP.String())
+	deletedBans, err := s.Ban.GC()
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
-	defer stmt.Close()
-}
-
-func (s *Service) gc() int64 {
-
-	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4 WHERE day_date < CURDATE()")
-	if err != nil {
-		log.Fatal(err)
-	}
-	res, err := stmt.Exec()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer stmt.Close()
-
-	deletedIP, err := res.RowsAffected()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	stmt, err = s.db.Prepare("DELETE FROM banned_ip WHERE up_to < NOW()")
-	if err != nil {
-		log.Fatal(err)
-	}
-	res, err = stmt.Exec()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer stmt.Close()
-
-	deletedBans, err := res.RowsAffected()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return deletedIP + deletedBans
-}
-
-func (s *Service) clearIPMonitoring(ip net.IP) error {
-	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4 WHERE ip = INET6_ATON(?)")
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Exec(ip.String())
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	return nil
-}
-
-func (s *Service) unban(ip net.IP) error {
-
-	stmt, err := s.db.Prepare("DELETE FROM banned_ip WHERE ip = INET6_ATON(?)")
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Exec(ip.String())
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	return nil
+	fmt.Printf("`%v` items of ban deleted\n", deletedBans)
 }
 
 func (s *Service) autoWhitelist() error {
@@ -201,7 +155,7 @@ func (s *Service) autoWhitelistIP(ip net.IP) error {
 
 	fmt.Print(ipText + ": ")
 
-	inWhitelist, err := s.Whitelist.exists(ip)
+	inWhitelist, err := s.Whitelist.Exists(ip)
 	if err != nil {
 		return err
 	}
@@ -218,15 +172,15 @@ func (s *Service) autoWhitelistIP(ip net.IP) error {
 		return nil
 	}
 
-	if err := s.Whitelist.add(ip, desc); err != nil {
+	if err := s.Whitelist.Add(ip, desc); err != nil {
 		return err
 	}
 
-	if err := s.unban(ip); err != nil {
+	if err := s.Ban.Remove(ip); err != nil {
 		return err
 	}
 
-	if err := s.clearIPMonitoring(ip); err != nil {
+	if err := s.Monitoring.ClearIP(ip); err != nil {
 		return err
 	}
 

@@ -16,15 +16,9 @@ func TestService(t *testing.T) {
 
 	assert.Equal(t, nil, err)
 
-	s.pushHit(InputMessage{
-		IP:        net.IPv4(192, 168, 0, 1),
-		Timestamp: time.Now(),
-	})
+	s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
 
-	s.pushHit(InputMessage{
-		IP:        net.IPv6loopback,
-		Timestamp: time.Now(),
-	})
+	s.Monitoring.Add(net.IPv6loopback, time.Now())
 
 	s.Close()
 }

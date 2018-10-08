@@ -29,3 +29,23 @@ func TestMatchAuto(t *testing.T) {
 
 	s.Close()
 }
+
+func TestContains(t *testing.T) {
+
+	config := LoadConfig()
+
+	s, err := NewService(config)
+
+	assert.Equal(t, nil, err)
+
+	ip := net.IPv4(66, 249, 73, 139)
+
+	err = s.Whitelist.Add(ip, "test")
+	assert.Equal(t, nil, err)
+
+	exists, err := s.Whitelist.Exists(ip)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, true, exists)
+
+	s.Close()
+}

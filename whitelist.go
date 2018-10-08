@@ -53,7 +53,8 @@ func (s *Whitelist) MatchAuto(ip net.IP) (bool, string) {
 	return false, ""
 }
 
-func (s *Whitelist) add(ip net.IP, desc string) error {
+// Add IP to whitelist
+func (s *Whitelist) Add(ip net.IP, desc string) error {
 	stmt, err := s.db.Prepare(`
 		INSERT INTO ip_whitelist (ip, description)
 		VALUES (?, ?)
@@ -71,7 +72,8 @@ func (s *Whitelist) add(ip net.IP, desc string) error {
 	return nil
 }
 
-func (s *Whitelist) exists(ip net.IP) (bool, error) {
+// Exists whitelist already contains IP
+func (s *Whitelist) Exists(ip net.IP) (bool, error) {
 	var exists bool
 	err := s.db.QueryRow(`
 		SELECT 1
