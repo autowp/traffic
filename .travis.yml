@@ -16,7 +16,7 @@ before_script:
   - chmod +x ./waitforit
   - source test.env
   - ./waitforit -address tcp://$TRAFFIC_INPUT_HOST:$TRAFFIC_INPUT_PORT -timeout 30 || travis_terminate 1;
-  - ./waitformysql.sh
+  - source test.env && ./waitformysql.sh
 
 script:
   - go test -v -race || travis_terminate 1;
