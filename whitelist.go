@@ -57,13 +57,14 @@ func (s *Whitelist) MatchAuto(ip net.IP) (bool, string) {
 func (s *Whitelist) Add(ip net.IP, desc string) error {
 	stmt, err := s.db.Prepare(`
 		INSERT INTO ip_whitelist (ip, description)
-		VALUES (?, ?)
+		VALUES (INET6_ATON(?), ?)
+		ON DUPLICATE KEY UPDATE description=VALUES(description)
 	`)
 	if err != nil {
 		return err
 	}
 
-	_, err = stmt.Exec(ip, desc)
+	_, err = stmt.Exec(ip.String(), desc)
 	if err != nil {
 		return err
 	}
@@ -76,16 +77,16 @@ func (s *Whitelist) Add(ip net.IP, desc string) error {
 func (s *Whitelist) Exists(ip net.IP) (bool, error) {
 	var exists bool
 	err := s.db.QueryRow(`
-		SELECT 1
+		SELECT true
 		FROM ip_whitelist
 		WHERE ip = INET6_ATON(?)
 	`, ip.String()).Scan(&exists)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return false, err
+		if err == sql.ErrNoRows {
+			return false, nil
 		}
 
-		return false, nil
+		return false, err
 	}
 
 	return true, nil

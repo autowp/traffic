@@ -3,6 +3,7 @@ package traffic
 import (
 	"database/sql"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -86,6 +87,37 @@ func (s *Monitoring) ListOfTopIP(limit int) ([]net.IP, error) {
 		ORDER count DESC
 		LIMIT ?
 	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []net.IP{}
+
+	for rows.Next() {
+		var ip net.IP
+		if err := rows.Scan(&ip); err != nil {
+			return nil, err
+		}
+
+		result = append(result, ip)
+	}
+
+	return result, nil
+}
+
+// ListByBanProfile ListByBanProfile
+func (s *Monitoring) ListByBanProfile(profile AutobanProfile) ([]net.IP, error) {
+	group := append([]string{"ip"}, profile.Group...)
+
+	rows, err := s.db.Query(`
+		SELECT ip, SUM(count) AS c
+		FROM ip_monitoring4
+		WHERE day_date = CURDATE()
+		GROUP BY `+strings.Join(group, ", ")+`
+		HAVING c > ?
+		LIMIT 1000
+	`, profile.Limit)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package traffic
 
 import (
+	"fmt"
 	"net"
 	"testing"
 
@@ -39,6 +40,7 @@ func TestContains(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	ip := net.IPv4(66, 249, 73, 139)
+	fmt.Printf("IP=%v\n", ip)
 
 	err = s.Whitelist.Add(ip, "test")
 	assert.Equal(t, nil, err)

@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql" // enable mysql driver
 )
 
 const gcPeriod = time.Hour * 1
+const banByUserID = 9
 
 // Service Main Object
 type Service struct {
@@ -213,27 +213,13 @@ func (s *Service) autoWhitelistIP(ip net.IP) error {
 }
 
 func (s *Service) autoBanByProfile(profile AutobanProfile) error {
-	group := append([]string{"ip"}, profile.Group...)
 
-	rows, err := s.db.Query(`
-		SELECT ip, SUM(count) AS c
-		FROM ip_monitoring4
-		WHERE day_date = CURDATE()
-		GROUP BY `+strings.Join(group, ", ")+`
-		HAVING c > ?
-		LIMIT 1000
-	`, profile.Limit)
+	ips, err := s.Monitoring.ListByBanProfile(profile)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var ip net.IP
-		if err := rows.Scan(&ip); err != nil {
-			return err
-		}
-
+	for _, ip := range ips {
 		exists, err := s.Whitelist.Exists(ip)
 		if err != nil {
 			return err
@@ -244,7 +230,7 @@ func (s *Service) autoBanByProfile(profile AutobanProfile) error {
 
 		fmt.Printf("%s %v\n", profile.Reason, ip)
 
-		if err := s.Ban.Add(ip, profile.Time, 9, profile.Reason); err != nil {
+		if err := s.Ban.Add(ip, profile.Time, banByUserID, profile.Reason); err != nil {
 			return err
 		}
 	}

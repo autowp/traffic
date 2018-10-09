@@ -17,3 +17,9 @@ CREATE TABLE `banned_ip` (
   KEY `up_to` (`up_to`),
   KEY `by_user_id` (`by_user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `ip_whitelist` (
+  `description` varchar(255) NOT NULL,
+  `ip` varbinary(16) NOT NULL,
+  PRIMARY KEY (`ip`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
