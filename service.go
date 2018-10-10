@@ -11,6 +11,7 @@ import (
 )
 
 const gcPeriod = time.Hour * 1
+const whitelistPeriod = time.Hour * 1
 const banByUserID = 9
 
 // Service Main Object
@@ -134,14 +135,7 @@ func NewService(config Config) (*Service, error) {
 		}
 	}()
 
-	go func() {
-		err := s.input.Listen()
-		if err != nil {
-			s.log.Fatal(err)
-		}
-	}()
-
-	whitelistTicker := time.NewTicker(gcPeriod)
+	whitelistTicker := time.NewTicker(whitelistPeriod)
 	s.whitelistStopTicker = make(chan struct{})
 	go func() {
 		for {
