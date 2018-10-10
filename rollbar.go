@@ -7,7 +7,7 @@ import (
 	lib "github.com/rollbar/rollbar-go"
 )
 
-// Config config
+// RollbarConfig config
 type RollbarConfig struct {
 	Token       string `yaml:"token"`
 	Environment string `yaml:"environment"`

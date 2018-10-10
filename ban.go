@@ -9,13 +9,15 @@ import (
 
 // Ban Main Object
 type Ban struct {
-	db *sql.DB
+	db  *sql.DB
+	loc *time.Location
 }
 
 // NewBan constructor
-func NewBan(db *sql.DB) (*Ban, error) {
+func NewBan(db *sql.DB, loc *time.Location) (*Ban, error) {
 	return &Ban{
-		db: db,
+		db:  db,
+		loc: loc,
 	}, nil
 }
 
@@ -34,7 +36,7 @@ func (s *Ban) Add(ip net.IP, duration time.Duration, byUserID int, reason string
 	}
 	defer stmt.Close()
 
-	upToStr := upTo.Format("2006-01-02 15:04:05")
+	upToStr := upTo.In(s.loc).Format("2006-01-02 15:04:05")
 	_, err = stmt.Exec(ip.String(), upToStr, byUserID, reason)
 	if err != nil {
 		return err

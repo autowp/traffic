@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 )
 
 // Whitelist Main Object
 type Whitelist struct {
-	db *sql.DB
+	db  *sql.DB
+	loc *time.Location
 }
 
 // NewWhitelist constructor
-func NewWhitelist(db *sql.DB) (*Whitelist, error) {
+func NewWhitelist(db *sql.DB, loc *time.Location) (*Whitelist, error) {
 	return &Whitelist{
-		db: db,
+		db:  db,
+		loc: loc,
 	}, nil
 }
 

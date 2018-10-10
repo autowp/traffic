@@ -9,13 +9,15 @@ import (
 
 // Monitoring Main Object
 type Monitoring struct {
-	db *sql.DB
+	db  *sql.DB
+	loc *time.Location
 }
 
 // NewMonitoring constructor
-func NewMonitoring(db *sql.DB) (*Monitoring, error) {
+func NewMonitoring(db *sql.DB, loc *time.Location) (*Monitoring, error) {
 	return &Monitoring{
-		db: db,
+		db:  db,
+		loc: loc,
 	}, nil
 }
 
@@ -31,7 +33,7 @@ func (s *Monitoring) Add(ip net.IP, timestamp time.Time) error {
 	}
 	defer stmt.Close()
 
-	dateStr := timestamp.Format("2006-01-02 15:04:05")
+	dateStr := timestamp.In(s.loc).Format("2006-01-02 15:04:05")
 	_, err = stmt.Exec(dateStr, dateStr, dateStr, dateStr, ip.String())
 	if err != nil {
 		return err
@@ -43,11 +45,11 @@ func (s *Monitoring) Add(ip net.IP, timestamp time.Time) error {
 // GC Garbage Collect
 func (s *Monitoring) GC() (int64, error) {
 
-	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4 WHERE day_date < CURDATE()")
+	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4 WHERE day_date < ?")
 	if err != nil {
 		return 0, err
 	}
-	res, err := stmt.Exec()
+	res, err := stmt.Exec(time.Now().In(s.loc).Format("2006-01-02 15:04:05"))
 	if err != nil {
 		return 0, err
 	}
@@ -79,14 +81,50 @@ func (s *Monitoring) ClearIP(ip net.IP) error {
 // ListOfTopIP ListOfTopIP
 func (s *Monitoring) ListOfTopIP(limit int) ([]net.IP, error) {
 
+	nowStr := time.Now().In(s.loc).Format("2006-01-02")
+
 	rows, err := s.db.Query(`
-		SELECT ip, SUM(count) AS count
+		SELECT ip, SUM(count) AS c
 		FROM ip_monitoring4
-		WHERE day_date = CURDATE()
+		WHERE day_date = ?
 		GROUP BY ip
-		ORDER count DESC
+		ORDER BY c DESC
 		LIMIT ?
-	`, limit)
+	`, nowStr, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []net.IP{}
+
+	for rows.Next() {
+		var ip net.IP
+		var c int
+		if err := rows.Scan(&ip, &c); err != nil {
+			return nil, err
+		}
+
+		result = append(result, ip)
+	}
+
+	return result, nil
+}
+
+// ListByBanProfile ListByBanProfile
+func (s *Monitoring) ListByBanProfile(profile AutobanProfile) ([]net.IP, error) {
+	group := append([]string{"ip"}, profile.Group...)
+
+	nowStr := time.Now().In(s.loc).Format("2006-01-02 15:04:05")
+
+	rows, err := s.db.Query(`
+		SELECT ip, SUM(count) AS c
+		FROM ip_monitoring4
+		WHERE day_date = ?
+		GROUP BY `+strings.Join(group, ", ")+`
+		HAVING c > ?
+		LIMIT 1000
+	`, nowStr, profile.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -106,33 +144,22 @@ func (s *Monitoring) ListOfTopIP(limit int) ([]net.IP, error) {
 	return result, nil
 }
 
-// ListByBanProfile ListByBanProfile
-func (s *Monitoring) ListByBanProfile(profile AutobanProfile) ([]net.IP, error) {
-	group := append([]string{"ip"}, profile.Group...)
-
-	rows, err := s.db.Query(`
-		SELECT ip, SUM(count) AS c
+// ExistsIP ban list already contains IP
+func (s *Monitoring) ExistsIP(ip net.IP) (bool, error) {
+	var exists bool
+	err := s.db.QueryRow(`
+		SELECT 1
 		FROM ip_monitoring4
-		WHERE day_date = CURDATE()
-		GROUP BY `+strings.Join(group, ", ")+`
-		HAVING c > ?
-		LIMIT 1000
-	`, profile.Limit)
+		WHERE ip = INET6_ATON(?)
+		LIMIT 1
+	`, ip.String()).Scan(&exists)
 	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	result := []net.IP{}
-
-	for rows.Next() {
-		var ip net.IP
-		if err := rows.Scan(&ip); err != nil {
-			return nil, err
+		if err != sql.ErrNoRows {
+			return false, err
 		}
 
-		result = append(result, ip)
+		return false, nil
 	}
 
-	return result, nil
+	return true, nil
 }

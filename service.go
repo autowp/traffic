@@ -15,14 +15,16 @@ const banByUserID = 9
 
 // Service Main Object
 type Service struct {
-	config     Config
-	input      *Input
-	log        *Logger
-	db         *sql.DB
-	stopTicker chan struct{}
-	Whitelist  *Whitelist
-	Ban        *Ban
-	Monitoring *Monitoring
+	config              Config
+	input               *Input
+	log                 *Logger
+	db                  *sql.DB
+	gcStopTicker        chan struct{}
+	Whitelist           *Whitelist
+	Ban                 *Ban
+	Monitoring          *Monitoring
+	Loc                 *time.Location
+	whitelistStopTicker chan struct{}
 }
 
 // AutobanProfile AutobanProfile
@@ -66,25 +68,27 @@ func NewService(config Config) (*Service, error) {
 
 	logger := NewLogger(config.Rollbar)
 
+	loc, _ := time.LoadLocation("UTC")
+
 	db, err := sql.Open("mysql", config.DSN)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
 	}
 
-	whitelist, err := NewWhitelist(db)
+	whitelist, err := NewWhitelist(db, loc)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
 	}
 
-	ban, err := NewBan(db)
+	ban, err := NewBan(db, loc)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
 	}
 
-	monitoring, err := NewMonitoring(db)
+	monitoring, err := NewMonitoring(db, loc)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
@@ -97,6 +101,7 @@ func NewService(config Config) (*Service, error) {
 		Whitelist:  whitelist,
 		Ban:        ban,
 		Monitoring: monitoring,
+		Loc:        loc,
 	}
 
 	s.input = NewInput(config.Input, func(msg InputMessage) {
@@ -115,21 +120,43 @@ func NewService(config Config) (*Service, error) {
 		}
 	}()
 
-	ticker := time.NewTicker(gcPeriod)
-	s.stopTicker = make(chan struct{})
+	gcTicker := time.NewTicker(gcPeriod)
+	s.gcStopTicker = make(chan struct{})
 	go func() {
 		for {
 			select {
-			case <-ticker.C:
+			case <-gcTicker.C:
 				s.gc()
-			case <-s.stopTicker:
-				ticker.Stop()
+			case <-s.gcStopTicker:
+				gcTicker.Stop()
+				return
+			}
+		}
+	}()
+
+	go func() {
+		err := s.input.Listen()
+		if err != nil {
+			s.log.Fatal(err)
+		}
+	}()
+
+	whitelistTicker := time.NewTicker(gcPeriod)
+	s.whitelistStopTicker = make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-whitelistTicker.C:
+				s.autoWhitelist()
+			case <-s.whitelistStopTicker:
+				whitelistTicker.Stop()
 				return
 			}
 		}
 	}()
 
 	s.gc()
+	s.autoWhitelist()
 
 	return s, nil
 }
@@ -165,6 +192,7 @@ func (s *Service) autoWhitelist() error {
 	}
 
 	for _, ip := range ips {
+		fmt.Printf("Check IP %v\n", ip)
 		if err := s.autoWhitelistIP(ip); err != nil {
 			return err
 		}
@@ -183,11 +211,6 @@ func (s *Service) autoWhitelistIP(ip net.IP) error {
 		return err
 	}
 
-	if inWhitelist {
-		fmt.Println("whitelist, skip")
-		return nil
-	}
-
 	match, desc := s.Whitelist.MatchAuto(ip)
 
 	if !match {
@@ -195,8 +218,12 @@ func (s *Service) autoWhitelistIP(ip net.IP) error {
 		return nil
 	}
 
-	if err := s.Whitelist.Add(ip, desc); err != nil {
-		return err
+	if inWhitelist {
+		fmt.Println("whitelist, skip")
+	} else {
+		if err := s.Whitelist.Add(ip, desc); err != nil {
+			return err
+		}
 	}
 
 	if err := s.Ban.Remove(ip); err != nil {
