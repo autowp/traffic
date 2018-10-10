@@ -82,11 +82,13 @@ func (s *Ban) Exists(ip net.IP) (bool, error) {
 
 // GC Grablage Collect
 func (s *Ban) GC() (int64, error) {
-	stmt, err := s.db.Prepare("DELETE FROM banned_ip WHERE up_to < NOW()")
+	stmt, err := s.db.Prepare("DELETE FROM banned_ip WHERE up_to < ?")
 	if err != nil {
 		return 0, err
 	}
-	res, err := stmt.Exec()
+
+	nowStr := time.Now().In(s.loc).Format("2006-01-02 15:04:05")
+	res, err := stmt.Exec(nowStr)
 	if err != nil {
 		return 0, err
 	}

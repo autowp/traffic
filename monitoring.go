@@ -49,7 +49,7 @@ func (s *Monitoring) GC() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	res, err := stmt.Exec(time.Now().In(s.loc).Format("2006-01-02 15:04:05"))
+	res, err := stmt.Exec(time.Now().In(s.loc).Format("2006-01-02"))
 	if err != nil {
 		return 0, err
 	}
