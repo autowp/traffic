@@ -115,7 +115,7 @@ func (s *Monitoring) ListOfTopIP(limit int) ([]net.IP, error) {
 func (s *Monitoring) ListByBanProfile(profile AutobanProfile) ([]net.IP, error) {
 	group := append([]string{"ip"}, profile.Group...)
 
-	nowStr := time.Now().In(s.loc).Format("2006-01-02 15:04:05")
+	nowStr := time.Now().In(s.loc).Format("2006-01-02")
 
 	rows, err := s.db.Query(`
 		SELECT ip, SUM(count) AS c
@@ -134,7 +134,8 @@ func (s *Monitoring) ListByBanProfile(profile AutobanProfile) ([]net.IP, error) 
 
 	for rows.Next() {
 		var ip net.IP
-		if err := rows.Scan(&ip); err != nil {
+		var c int
+		if err := rows.Scan(&ip, &c); err != nil {
 			return nil, err
 		}
 

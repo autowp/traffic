@@ -63,12 +63,15 @@ func (s *Ban) Remove(ip net.IP) error {
 
 // Exists ban list already contains IP
 func (s *Ban) Exists(ip net.IP) (bool, error) {
+
+	nowStr := time.Now().In(s.loc).Format("2006-01-02 15:04:05")
+
 	var exists bool
 	err := s.db.QueryRow(`
 		SELECT 1
 		FROM banned_ip
-		WHERE ip = INET6_ATON(?)
-	`, ip.String()).Scan(&exists)
+		WHERE ip = INET6_ATON(?) AND up_to >= ?
+	`, ip.String(), nowStr).Scan(&exists)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return false, err

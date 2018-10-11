@@ -12,6 +12,7 @@ import (
 
 const gcPeriod = time.Hour * 1
 const whitelistPeriod = time.Hour * 1
+const banPeriod = time.Minute
 const banByUserID = 9
 
 // Service Main Object
@@ -26,6 +27,7 @@ type Service struct {
 	Monitoring          *Monitoring
 	Loc                 *time.Location
 	whitelistStopTicker chan struct{}
+	banStopTicker       chan struct{}
 }
 
 // AutobanProfile AutobanProfile
@@ -144,6 +146,20 @@ func NewService(config Config) (*Service, error) {
 				s.autoWhitelist()
 			case <-s.whitelistStopTicker:
 				whitelistTicker.Stop()
+				return
+			}
+		}
+	}()
+
+	banTicker := time.NewTicker(banPeriod)
+	s.banStopTicker = make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-banTicker.C:
+				s.autoBan()
+			case <-s.banStopTicker:
+				banTicker.Stop()
 				return
 			}
 		}

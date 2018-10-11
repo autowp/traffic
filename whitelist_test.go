@@ -13,19 +13,19 @@ func TestMatchAuto(t *testing.T) {
 
 	s, err := NewService(config)
 
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 
 	// match, _ := s.Whitelist.MatchAuto(net.IPv4(178, 154, 255, 146)) // yandex
-	// assert.Equal(t, true, match)
+	// assert.True(t, match)
 
 	match, _ := s.Whitelist.MatchAuto(net.IPv4(66, 249, 73, 139)) // google
-	assert.Equal(t, true, match)
+	assert.True(t, match)
 
 	match, _ = s.Whitelist.MatchAuto(net.IPv4(157, 55, 39, 127)) // msn
-	assert.Equal(t, true, match)
+	assert.True(t, match)
 
 	match, _ = s.Whitelist.MatchAuto(net.IPv4(127, 0, 0, 1)) // loopback
-	assert.Equal(t, false, match)
+	assert.False(t, match)
 
 	s.Close()
 }
@@ -36,16 +36,16 @@ func TestContains(t *testing.T) {
 
 	s, err := NewService(config)
 
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 
 	ip := net.IPv4(66, 249, 73, 139)
 
 	err = s.Whitelist.Add(ip, "test")
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 
 	exists, err := s.Whitelist.Exists(ip)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, true, exists)
+	assert.NoError(t, err)
+	assert.True(t, exists)
 
 	s.Close()
 }
