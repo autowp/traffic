@@ -39,7 +39,7 @@ func (s *Whitelist) MatchAuto(ip net.IP) (bool, string) {
 		ipWithDashes := strings.Replace(ipText, ".", "-", -1)
 
 		msnHost := "msnbot-" + ipWithDashes + ".search.msn.com."
-		yandexComHost := "spider-" + ipWithDashes + ".yandex.com."
+		yandexComHost := ipWithDashes + ".spider.yandex.com."
 		googlebotHost := "crawl-" + ipWithDashes + ".googlebot.com."
 
 		if host == msnHost {
@@ -93,4 +93,20 @@ func (s *Whitelist) Exists(ip net.IP) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// Remove IP from whitelist
+func (s *Whitelist) Remove(ip net.IP) error {
+
+	stmt, err := s.db.Prepare("DELETE FROM ip_whitelist WHERE ip = INET6_ATON(?)")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(ip.String())
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	return nil
 }

@@ -108,3 +108,41 @@ func TestAutoBanByProfile(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, exists)
 }
+
+func TestWhitelistedNotBanned(t *testing.T) {
+
+	config := LoadConfig()
+
+	s, err := NewService(config)
+	assert.NoError(t, err)
+
+	profile := AutobanProfile{
+		Limit:  3,
+		Reason: "Test",
+		Group:  []string{"hour", "tenminute", "minute"},
+		Time:   time.Hour,
+	}
+
+	ip := net.IPv4(178, 154, 244, 21)
+
+	err = s.Whitelist.Remove(ip)
+	assert.NoError(t, err)
+
+	for i := 0; i < 4; i++ {
+		err = s.Monitoring.Add(ip, time.Now())
+		assert.NoError(t, err)
+	}
+
+	err = s.Ban.Add(ip, time.Hour, 9, "test")
+	assert.NoError(t, err)
+
+	err = s.autoWhitelistIP(ip)
+	assert.NoError(t, err)
+
+	err = s.autoBanByProfile(profile)
+	assert.NoError(t, err)
+
+	exists, err := s.Ban.Exists(ip)
+	assert.NoError(t, err)
+	assert.False(t, exists)
+}
