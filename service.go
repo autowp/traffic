@@ -25,6 +25,7 @@ type Service struct {
 	Whitelist           *Whitelist
 	Ban                 *Ban
 	Monitoring          *Monitoring
+	Hotlink             *Hotlink
 	Loc                 *time.Location
 	whitelistStopTicker chan struct{}
 	banStopTicker       chan struct{}
@@ -97,6 +98,12 @@ func NewService(config Config) (*Service, error) {
 		return nil, err
 	}
 
+	hotlink, err := NewHotlink(db, loc)
+	if err != nil {
+		logger.Fatal(err)
+		return nil, err
+	}
+
 	s := &Service{
 		config:     config,
 		log:        logger,
@@ -105,6 +112,7 @@ func NewService(config Config) (*Service, error) {
 		Ban:        ban,
 		Monitoring: monitoring,
 		Loc:        loc,
+		Hotlink:    hotlink,
 	}
 
 	s.input = NewInput(config.Input, func(msg InputMessage) {
@@ -179,19 +187,26 @@ func (s *Service) Close() {
 
 func (s *Service) gc() {
 
-	deletedIP, err := s.Monitoring.GC()
+	deleted, err := s.Monitoring.GC()
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-	fmt.Printf("`%v` items of monitoring deleted\n", deletedIP)
+	fmt.Printf("`%v` items of monitoring deleted\n", deleted)
 
-	deletedBans, err := s.Ban.GC()
+	deleted, err = s.Ban.GC()
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-	fmt.Printf("`%v` items of ban deleted\n", deletedBans)
+	fmt.Printf("`%v` items of ban deleted\n", deleted)
+
+	deleted, err = s.Hotlink.GC()
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	fmt.Printf("`%v` items of hotlinks deleted\n", deleted)
 }
 
 func (s *Service) autoWhitelist() error {

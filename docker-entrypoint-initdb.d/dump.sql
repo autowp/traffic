@@ -23,3 +23,24 @@ CREATE TABLE `ip_whitelist` (
   `ip` varbinary(16) NOT NULL,
   PRIMARY KEY (`ip`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `referer` (
+  `host` varchar(255) DEFAULT NULL,
+  `url` varchar(1000) NOT NULL,
+  `count` int(11) unsigned NOT NULL DEFAULT '0',
+  `last_date` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `accept` varchar(1000) DEFAULT NULL,
+  PRIMARY KEY (`url`),
+  KEY `UK_referer_host` (`host`,`last_date`)
+) ENGINE=MEMORY DEFAULT CHARSET=utf8
+
+CREATE TABLE `referer_whitelist` (
+  `host` varchar(255) NOT NULL,
+  PRIMARY KEY (`host`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
+CREATE TABLE `referer_blacklist` (
+  `host` varchar(255) NOT NULL,
+  `hard` tinyint(4) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`host`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
