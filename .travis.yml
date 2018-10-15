@@ -17,7 +17,7 @@ before_script:
   - wget -q -O ./waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.0/waitforit-linux_amd64
   - chmod +x ./waitforit
   - source test.env
-  - ./waitforit -address tcp://$TRAFFIC_INPUT_HOST:$TRAFFIC_INPUT_PORT -timeout 30 || travis_terminate 1;
+  - ./waitforit -address tcp://$TRAFFIC_RABBITMQ_HOST:$TRAFFIC_RABBITMQ_PORT -timeout 30 || travis_terminate 1;
   - source test.env && ./waitformysql.sh
 
 script:
