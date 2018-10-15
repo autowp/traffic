@@ -3,11 +3,12 @@ package traffic
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"net"
+	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql" // enable mysql driver
+	"github.com/streadway/amqp"
 )
 
 const gcPeriod = time.Hour * 1
@@ -18,16 +19,17 @@ const banByUserID = 9
 // Service Main Object
 type Service struct {
 	config              Config
-	input               *Input
-	log                 *Logger
+	logger              *Logger
 	db                  *sql.DB
-	gcStopTicker        chan struct{}
 	Whitelist           *Whitelist
 	Ban                 *Ban
 	Monitoring          *Monitoring
+	Hotlink             *Hotlink
 	Loc                 *time.Location
-	whitelistStopTicker chan struct{}
-	banStopTicker       chan struct{}
+	whitelistStopTicker chan bool
+	banStopTicker       chan bool
+	rabbitMQ            *amqp.Connection
+	waitGroup           *sync.WaitGroup
 }
 
 // AutobanProfile AutobanProfile
@@ -79,19 +81,32 @@ func NewService(config Config) (*Service, error) {
 		return nil, err
 	}
 
+	wg := &sync.WaitGroup{}
+
+	rabbitMQ, err := amqp.Dial(config.RabbitMQ)
+	if err != nil {
+		return nil, err
+	}
+
 	whitelist, err := NewWhitelist(db, loc)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
 	}
 
-	ban, err := NewBan(db, loc)
+	ban, err := NewBan(wg, db, loc, logger)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
 	}
 
-	monitoring, err := NewMonitoring(db, loc)
+	monitoring, err := NewMonitoring(wg, db, loc, rabbitMQ, config.MonitoringQueue, logger)
+	if err != nil {
+		logger.Fatal(err)
+		return nil, err
+	}
+
+	hotlink, err := NewHotlink(wg, db, loc, rabbitMQ, config.HotlinkQueue, logger)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
@@ -99,99 +114,87 @@ func NewService(config Config) (*Service, error) {
 
 	s := &Service{
 		config:     config,
-		log:        logger,
+		logger:     logger,
 		db:         db,
 		Whitelist:  whitelist,
 		Ban:        ban,
 		Monitoring: monitoring,
 		Loc:        loc,
+		Hotlink:    hotlink,
+		rabbitMQ:   rabbitMQ,
+		waitGroup:  wg,
 	}
 
-	s.input = NewInput(config.Input, func(msg InputMessage) {
-		err := s.Monitoring.Add(msg.IP, msg.Timestamp)
-		if err != nil {
-			s.log.Warning(err)
-		}
-	}, func(err error) {
-		s.log.Warning(err)
-	})
-
-	go func() {
-		err := s.input.Listen()
-		if err != nil {
-			s.log.Fatal(err)
-		}
-	}()
-
-	gcTicker := time.NewTicker(gcPeriod)
-	s.gcStopTicker = make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-gcTicker.C:
-				s.gc()
-			case <-s.gcStopTicker:
-				gcTicker.Stop()
-				return
-			}
-		}
-	}()
-
 	whitelistTicker := time.NewTicker(whitelistPeriod)
-	s.whitelistStopTicker = make(chan struct{})
+	s.whitelistStopTicker = make(chan bool)
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+		fmt.Println("AutoWhitelist scheduler started")
+	loop:
 		for {
 			select {
 			case <-whitelistTicker.C:
-				s.autoWhitelist()
+				err := s.autoWhitelist()
+				if err != nil {
+					logger.Warning(err)
+				}
 			case <-s.whitelistStopTicker:
 				whitelistTicker.Stop()
-				return
+				break loop
 			}
 		}
+		fmt.Println("AutoWhitelist scheduler stopped")
 	}()
 
 	banTicker := time.NewTicker(banPeriod)
-	s.banStopTicker = make(chan struct{})
+	s.banStopTicker = make(chan bool)
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+		fmt.Println("AutoBan scheduler started")
+	loop:
 		for {
 			select {
 			case <-banTicker.C:
-				s.autoBan()
+				err := s.autoBan()
+				if err != nil {
+					logger.Warning(err)
+				}
 			case <-s.banStopTicker:
 				banTicker.Stop()
-				return
+				break loop
 			}
 		}
-	}()
 
-	s.gc()
-	s.autoWhitelist()
+		fmt.Println("AutoBan scheduler stopped")
+	}()
 
 	return s, nil
 }
 
 // Close Destructor
 func (s *Service) Close() {
-	s.input.Close()
-	s.db.Close()
-}
+	s.banStopTicker <- true
+	close(s.banStopTicker)
+	s.whitelistStopTicker <- true
+	close(s.whitelistStopTicker)
 
-func (s *Service) gc() {
+	s.Monitoring.Close()
+	s.Hotlink.Close()
+	s.Ban.Close()
 
-	deletedIP, err := s.Monitoring.GC()
+	s.waitGroup.Wait()
+
+	err := s.db.Close()
 	if err != nil {
-		log.Fatal(err)
-		return
+		s.logger.Warning(err)
 	}
-	fmt.Printf("`%v` items of monitoring deleted\n", deletedIP)
 
-	deletedBans, err := s.Ban.GC()
+	err = s.rabbitMQ.Close()
 	if err != nil {
-		log.Fatal(err)
-		return
+		s.logger.Warning(err)
 	}
-	fmt.Printf("`%v` items of ban deleted\n", deletedBans)
 }
 
 func (s *Service) autoWhitelist() error {

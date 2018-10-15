@@ -2,23 +2,64 @@ package traffic
 
 import (
 	"database/sql"
+	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
+const banGCPeriod = time.Hour * 10
+
 // Ban Main Object
 type Ban struct {
-	db  *sql.DB
-	loc *time.Location
+	db           *sql.DB
+	loc          *time.Location
+	gcStopTicker chan bool
+	logger       *Logger
 }
 
 // NewBan constructor
-func NewBan(db *sql.DB, loc *time.Location) (*Ban, error) {
-	return &Ban{
-		db:  db,
-		loc: loc,
-	}, nil
+func NewBan(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, logger *Logger) (*Ban, error) {
+	s := &Ban{
+		db:           db,
+		loc:          loc,
+		gcStopTicker: make(chan bool),
+		logger:       logger,
+	}
+
+	wg.Add(1)
+	gcTicker := time.NewTicker(banGCPeriod)
+	go func() {
+		defer wg.Done()
+
+		fmt.Println("Ban GC scheduler started")
+	loop:
+		for {
+			select {
+			case <-gcTicker.C:
+				deleted, err := s.GC()
+				if err != nil {
+					s.logger.Fatal(err)
+					return
+				}
+				fmt.Printf("`%v` items of ban deleted\n", deleted)
+			case <-s.gcStopTicker:
+				gcTicker.Stop()
+				break loop
+			}
+		}
+
+		fmt.Println("Ban GC scheduler stopped")
+	}()
+
+	return s, nil
+}
+
+// Close all connections
+func (s *Ban) Close() {
+	s.gcStopTicker <- true
+	close(s.gcStopTicker)
 }
 
 // Add IP to list of banned
@@ -34,7 +75,7 @@ func (s *Ban) Add(ip net.IP, duration time.Duration, byUserID int, reason string
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer Close(stmt)
 
 	upToStr := upTo.In(s.loc).Format("2006-01-02 15:04:05")
 	_, err = stmt.Exec(ip.String(), upToStr, byUserID, reason)
@@ -56,7 +97,7 @@ func (s *Ban) Remove(ip net.IP) error {
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer Close(stmt)
 
 	return nil
 }
@@ -95,7 +136,7 @@ func (s *Ban) GC() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer stmt.Close()
+	defer Close(stmt)
 
 	affected, err := res.RowsAffected()
 	if err != nil {

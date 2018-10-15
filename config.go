@@ -7,19 +7,20 @@ import (
 
 // Config Application config definition
 type Config struct {
-	Input   InputConfig   `yaml:"input"`
-	Rollbar RollbarConfig `yaml:"rollbar"`
-	DSN     string        `yaml:"dsn"`
+	RabbitMQ        string        `yaml:"rabbitmq"`
+	MonitoringQueue string        `yaml:"monitoring_queue"`
+	HotlinkQueue    string        `yaml:"hotlink_queue"`
+	Rollbar         RollbarConfig `yaml:"rollbar"`
+	DSN             string        `yaml:"dsn"`
 }
 
 // LoadConfig LoadConfig
 func LoadConfig() Config {
 
 	config := Config{
-		Input: InputConfig{
-			Address: "amqp://guest:guest@" + os.Getenv("TRAFFIC_INPUT_HOST") + ":" + os.Getenv("TRAFFIC_INPUT_PORT") + "/",
-			Queue:   os.Getenv("TRAFFIC_INPUT_QUEUE"),
-		},
+		RabbitMQ:        "amqp://guest:guest@" + os.Getenv("TRAFFIC_RABBITMQ_HOST") + ":" + os.Getenv("TRAFFIC_RABBITMQ_PORT") + "/",
+		MonitoringQueue: os.Getenv("TRAFFIC_MONITORING_QUEUE"),
+		HotlinkQueue:    os.Getenv("TRAFFIC_HOTLINK_QUEUE"),
 		Rollbar: RollbarConfig{
 			Token:       os.Getenv("TRAFFIC_ROLLBAR_TOKEN"),
 			Environment: os.Getenv("TRAFFIC_ROLLBAR_ENVIRONMENT"),
@@ -35,11 +36,15 @@ func LoadConfig() Config {
 
 // ValidateConfig ValidateConfig
 func ValidateConfig(config Config) {
-	if config.Input.Address == "" {
+	if config.RabbitMQ == "" {
 		log.Fatalln("Address not provided")
 	}
 
-	if config.Input.Queue == "" {
-		log.Fatalln("Queue not provided")
+	if config.MonitoringQueue == "" {
+		log.Fatalln("MonitoringQueue not provided")
+	}
+
+	if config.HotlinkQueue == "" {
+		log.Fatalln("HotlinkQueue not provided")
 	}
 }
