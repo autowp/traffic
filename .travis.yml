@@ -10,6 +10,8 @@ go:
 
 before_script:
   - go get -t
+  - go get -u github.com/kisielk/errcheck
+  - errcheck ./...
   - sudo service mysql stop
   - docker-compose up -d
   - wget -q -O ./waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.0/waitforit-linux_amd64

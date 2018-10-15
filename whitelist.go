@@ -71,7 +71,7 @@ func (s *Whitelist) Add(ip net.IP, desc string) error {
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer Close(stmt)
 
 	return nil
 }
@@ -106,7 +106,7 @@ func (s *Whitelist) Remove(ip net.IP) error {
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer Close(stmt)
 
 	return nil
 }

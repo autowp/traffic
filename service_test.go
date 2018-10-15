@@ -16,9 +16,11 @@ func TestService(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
+	err = s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
+	assert.NoError(t, err)
 
-	s.Monitoring.Add(net.IPv6loopback, time.Now())
+	err = s.Monitoring.Add(net.IPv6loopback, time.Now())
+	assert.NoError(t, err)
 
 	s.Close()
 }
@@ -91,7 +93,8 @@ func TestAutoBanByProfile(t *testing.T) {
 	err = s.Ban.Remove(ip2)
 	assert.NoError(t, err)
 
-	s.Monitoring.Add(ip1, time.Now())
+	err = s.Monitoring.Add(ip1, time.Now())
+	assert.NoError(t, err)
 	for i := 0; i < 4; i++ {
 		err = s.Monitoring.Add(ip2, time.Now())
 		assert.NoError(t, err)
