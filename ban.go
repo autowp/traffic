@@ -32,6 +32,8 @@ func NewBan(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, logger *Logger) 
 	gcTicker := time.NewTicker(banGCPeriod)
 	go func() {
 		defer wg.Done()
+
+		fmt.Println("Ban GC scheduler started")
 	loop:
 		for {
 			select {

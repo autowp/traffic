@@ -130,6 +130,8 @@ func NewService(config Config) (*Service, error) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		fmt.Println("AutoWhitelist scheduler started")
+	loop:
 		for {
 			select {
 			case <-whitelistTicker.C:
@@ -139,9 +141,10 @@ func NewService(config Config) (*Service, error) {
 				}
 			case <-s.whitelistStopTicker:
 				whitelistTicker.Stop()
-				return
+				break loop
 			}
 		}
+		fmt.Println("AutoWhitelist scheduler stopped")
 	}()
 
 	banTicker := time.NewTicker(banPeriod)
@@ -149,6 +152,8 @@ func NewService(config Config) (*Service, error) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		fmt.Println("AutoBan scheduler started")
+	loop:
 		for {
 			select {
 			case <-banTicker.C:
@@ -158,9 +163,11 @@ func NewService(config Config) (*Service, error) {
 				}
 			case <-s.banStopTicker:
 				banTicker.Stop()
-				return
+				break loop
 			}
 		}
+
+		fmt.Println("AutoBan scheduler stopped")
 	}()
 
 	return s, nil

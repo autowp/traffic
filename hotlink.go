@@ -50,15 +50,26 @@ func NewHotlink(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, rabbitmMQ *a
 	}
 
 	wg.Add(1)
-
 	go func() {
 		defer wg.Done()
+		fmt.Println("Hotlink GC scheduler started")
 		err := s.scheduleGC()
 		if err != nil {
 			s.logger.Warning(err)
 			return
 		}
 		fmt.Println("Hotlink GC scheduler stopped")
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		fmt.Println("Hotlink listener started")
+		err := s.listen()
+		if err != nil {
+			s.logger.Fatal(err)
+		}
+		fmt.Println("Hotlink listener stopped")
 	}()
 
 	return s, nil

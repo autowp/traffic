@@ -47,6 +47,7 @@ func NewMonitoring(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, rabbitmMQ
 
 	go func() {
 		defer wg.Done()
+		fmt.Println("Monitoring GC scheduler started")
 		err := s.scheduleGC()
 		if err != nil {
 			s.logger.Warning(err)
@@ -58,6 +59,7 @@ func NewMonitoring(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, rabbitmMQ
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		fmt.Println("Monitoring listener started")
 		err := s.listen()
 		if err != nil {
 			s.logger.Fatal(err)
