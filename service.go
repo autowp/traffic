@@ -3,10 +3,13 @@ package traffic
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql" // enable mysql driver
 	"github.com/streadway/amqp"
 )
@@ -30,6 +33,8 @@ type Service struct {
 	banStopTicker       chan bool
 	rabbitMQ            *amqp.Connection
 	waitGroup           *sync.WaitGroup
+	router              *gin.Engine
+	httpServer          *http.Server
 }
 
 // AutobanProfile AutobanProfile
@@ -125,6 +130,8 @@ func NewService(config Config) (*Service, error) {
 		waitGroup:  wg,
 	}
 
+	s.setupRouter()
+
 	whitelistTicker := time.NewTicker(whitelistPeriod)
 	s.whitelistStopTicker = make(chan bool)
 	wg.Add(1)
@@ -180,6 +187,13 @@ func (s *Service) Close() {
 	s.whitelistStopTicker <- true
 	close(s.whitelistStopTicker)
 
+	if s.httpServer != nil {
+		err := s.httpServer.Shutdown(nil)
+		if err != nil {
+			panic(err) // failure/timeout shutting down the server gracefully
+		}
+	}
+
 	s.Monitoring.Close()
 	s.Hotlink.Close()
 	s.Ban.Close()
@@ -195,6 +209,18 @@ func (s *Service) Close() {
 	if err != nil {
 		s.logger.Warning(err)
 	}
+}
+
+// ListenHTTP HTTP thread
+func (s *Service) ListenHTTP() {
+	go func() {
+		s.httpServer = &http.Server{Addr: s.config.HTTP.Listen, Handler: s.router}
+		err := s.httpServer.ListenAndServe()
+		if err != nil {
+			// cannot panic, because this probably is an intentional close
+			log.Printf("Httpserver: ListenAndServe() error: %s", err)
+		}
+	}()
 }
 
 func (s *Service) autoWhitelist() error {

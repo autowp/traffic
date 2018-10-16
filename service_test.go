@@ -1,7 +1,11 @@
 package traffic
 
 import (
+	"bytes"
+	"encoding/json"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -13,16 +17,14 @@ func TestService(t *testing.T) {
 	config := LoadConfig()
 
 	s, err := NewService(config)
-
 	assert.NoError(t, err)
+	defer s.Close()
 
 	err = s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
 	assert.NoError(t, err)
 
 	err = s.Monitoring.Add(net.IPv6loopback, time.Now())
 	assert.NoError(t, err)
-
-	s.Close()
 }
 
 func TestAutoWhitelist(t *testing.T) {
@@ -31,6 +33,7 @@ func TestAutoWhitelist(t *testing.T) {
 
 	s, err := NewService(config)
 	assert.NoError(t, err)
+	defer s.Close()
 
 	ip := net.IPv4(66, 249, 73, 139) // google
 
@@ -62,8 +65,6 @@ func TestAutoWhitelist(t *testing.T) {
 	exists, err = s.Whitelist.Exists(ip)
 	assert.NoError(t, err)
 	assert.True(t, exists)
-
-	s.Close()
 }
 
 func TestAutoBanByProfile(t *testing.T) {
@@ -72,6 +73,7 @@ func TestAutoBanByProfile(t *testing.T) {
 
 	s, err := NewService(config)
 	assert.NoError(t, err)
+	defer s.Close()
 
 	profile := AutobanProfile{
 		Limit:  3,
@@ -118,6 +120,7 @@ func TestWhitelistedNotBanned(t *testing.T) {
 
 	s, err := NewService(config)
 	assert.NoError(t, err)
+	defer s.Close()
 
 	profile := AutobanProfile{
 		Limit:  3,
@@ -146,6 +149,48 @@ func TestWhitelistedNotBanned(t *testing.T) {
 	assert.NoError(t, err)
 
 	exists, err := s.Ban.Exists(ip)
+	assert.NoError(t, err)
+	assert.False(t, exists)
+}
+
+func TestHttpBanPost(t *testing.T) {
+	config := LoadConfig()
+
+	s, err := NewService(config)
+	assert.NoError(t, err)
+	defer s.Close()
+
+	err = s.Ban.Remove(net.IPv4(127, 0, 0, 1))
+	assert.NoError(t, err)
+
+	router := s.GetRouter()
+
+	w := httptest.NewRecorder()
+	b, err := json.Marshal(map[string]interface{}{
+		"ip":         "127.0.0.1",
+		"duration":   60 * 1000 * 1000 * 1000,
+		"by_user_id": 4,
+		"reason":     "Test",
+	})
+	assert.NoError(t, err)
+	req, err := http.NewRequest("POST", "/ban", bytes.NewBuffer(b))
+	assert.NoError(t, err)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	exists, err := s.Ban.Exists(net.IPv4(127, 0, 0, 1))
+	assert.NoError(t, err)
+	assert.True(t, exists)
+
+	w = httptest.NewRecorder()
+	req, err = http.NewRequest("DELETE", "/ban/127.0.0.1", nil)
+	assert.NoError(t, err)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+
+	exists, err = s.Ban.Exists(net.IPv4(127, 0, 0, 1))
 	assert.NoError(t, err)
 	assert.False(t, exists)
 }
