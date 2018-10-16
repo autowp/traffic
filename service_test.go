@@ -25,8 +25,6 @@ func TestService(t *testing.T) {
 
 	err = s.Monitoring.Add(net.IPv6loopback, time.Now())
 	assert.NoError(t, err)
-
-	s.Close()
 }
 
 func TestAutoWhitelist(t *testing.T) {
@@ -67,8 +65,6 @@ func TestAutoWhitelist(t *testing.T) {
 	exists, err = s.Whitelist.Exists(ip)
 	assert.NoError(t, err)
 	assert.True(t, exists)
-
-	s.Close()
 }
 
 func TestAutoBanByProfile(t *testing.T) {
