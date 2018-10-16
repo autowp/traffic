@@ -5,6 +5,11 @@ import (
 	"os"
 )
 
+// HTTPConfig HTTPConfig
+type HTTPConfig struct {
+	Listen string `yaml:"listen"`
+}
+
 // Config Application config definition
 type Config struct {
 	RabbitMQ        string        `yaml:"rabbitmq"`
@@ -12,6 +17,7 @@ type Config struct {
 	HotlinkQueue    string        `yaml:"hotlink_queue"`
 	Rollbar         RollbarConfig `yaml:"rollbar"`
 	DSN             string        `yaml:"dsn"`
+	HTTP            HTTPConfig    `yaml:"http"`
 }
 
 // LoadConfig LoadConfig
@@ -29,6 +35,9 @@ func LoadConfig() Config {
 		DSN: os.Getenv("TRAFFIC_MYSQL_USERNAME") + ":" + os.Getenv("TRAFFIC_MYSQL_PASSWORD") +
 			"@tcp(" + os.Getenv("TRAFFIC_MYSQL_HOST") + ":" + os.Getenv("TRAFFIC_MYSQL_PORT") + ")/" +
 			os.Getenv("TRAFFIC_MYSQL_DBNAME") + "?charset=utf8mb4&parseTime=true&loc=UTC",
+		HTTP: HTTPConfig{
+			Listen: os.Getenv("TRAFFIC_HTTP_LISTEN"),
+		},
 	}
 
 	return config
