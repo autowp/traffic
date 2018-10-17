@@ -23,7 +23,8 @@ func (s *Service) GetRouter() *gin.Engine {
 }
 
 func (s *Service) setupRouter() {
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
 
 	r.POST("/ban", func(c *gin.Context) {
 
