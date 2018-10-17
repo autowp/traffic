@@ -11,6 +11,14 @@ import (
 
 const banGCPeriod = time.Hour * 10
 
+// BanItem BanItem
+type BanItem struct {
+	IP       net.IP    `json:"ip"`
+	UpTo     time.Time `json:"up_to"`
+	ByUserID int       `json:"by_user_id"`
+	Reason   string    `json:"reason"`
+}
+
 // Ban Main Object
 type Ban struct {
 	db           *sql.DB
@@ -122,6 +130,28 @@ func (s *Ban) Exists(ip net.IP) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// Get ban info
+func (s *Ban) Get(ip net.IP) (*BanItem, error) {
+
+	nowStr := time.Now().In(s.loc).Format("2006-01-02 15:04:05")
+
+	item := BanItem{}
+	err := s.db.QueryRow(`
+		SELECT ip, up_to, reason, by_user_id
+		FROM banned_ip
+		WHERE ip = INET6_ATON(?) AND up_to >= ?
+	`, ip.String(), nowStr).Scan(&item.IP, &item.UpTo, &item.Reason, &item.ByUserID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &item, nil
 }
 
 // GC Grablage Collect
