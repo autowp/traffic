@@ -177,6 +177,19 @@ func NewService(config Config) (*Service, error) {
 		fmt.Println("AutoBan scheduler stopped")
 	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		fmt.Println("HTTP server started")
+		s.httpServer = &http.Server{Addr: s.config.HTTP.Listen, Handler: s.router}
+		err := s.httpServer.ListenAndServe()
+		if err != nil {
+			// cannot panic, because this probably is an intentional close
+			log.Printf("Httpserver: ListenAndServe() error: %s", err)
+		}
+		fmt.Println("HTTP server stopped")
+	}()
+
 	return s, nil
 }
 
@@ -209,18 +222,6 @@ func (s *Service) Close() {
 	if err != nil {
 		s.logger.Warning(err)
 	}
-}
-
-// ListenHTTP HTTP thread
-func (s *Service) ListenHTTP() {
-	go func() {
-		s.httpServer = &http.Server{Addr: s.config.HTTP.Listen, Handler: s.router}
-		err := s.httpServer.ListenAndServe()
-		if err != nil {
-			// cannot panic, because this probably is an intentional close
-			log.Printf("Httpserver: ListenAndServe() error: %s", err)
-		}
-	}()
 }
 
 func (s *Service) autoWhitelist() error {
