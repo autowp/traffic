@@ -63,5 +63,26 @@ func (s *Service) setupRouter() {
 		c.Status(http.StatusNoContent)
 	})
 
+	r.GET("/ban/:ip", func(c *gin.Context) {
+		ip := net.ParseIP(c.Param("ip"))
+		if ip == nil {
+			c.String(http.StatusBadRequest, "Invalid IP")
+			return
+		}
+
+		ban, err := s.Ban.Get(ip)
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		if ban == nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		c.JSON(http.StatusOK, ban)
+	})
+
 	s.router = r
 }
