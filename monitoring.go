@@ -31,6 +31,12 @@ type MonitoringInputMessage struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+// ListOfTopItem ListOfTopItem
+type ListOfTopItem struct {
+	IP    net.IP `json:"ip"`
+	Count int    `json:"count"`
+}
+
 // NewMonitoring constructor
 func NewMonitoring(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, rabbitmMQ *amqp.Connection, queue string, logger *Logger) (*Monitoring, error) {
 	s := &Monitoring{
@@ -204,6 +210,21 @@ func (s *Monitoring) GC() (int64, error) {
 	return affected, nil
 }
 
+// Clear removes all collected data
+func (s *Monitoring) Clear() error {
+	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4")
+	if err != nil {
+		return err
+	}
+	defer Close(stmt)
+	_, err = stmt.Exec()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ClearIP removes all data collected for IP
 func (s *Monitoring) ClearIP(ip net.IP) error {
 	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4 WHERE ip = INET6_ATON(?)")
@@ -219,8 +240,8 @@ func (s *Monitoring) ClearIP(ip net.IP) error {
 	return nil
 }
 
-// ListOfTopIP ListOfTopIP
-func (s *Monitoring) ListOfTopIP(limit int) ([]net.IP, error) {
+// ListOfTop ListOfTop
+func (s *Monitoring) ListOfTop(limit int) ([]ListOfTopItem, error) {
 
 	nowStr := time.Now().In(s.loc).Format("2006-01-02")
 
@@ -237,16 +258,15 @@ func (s *Monitoring) ListOfTopIP(limit int) ([]net.IP, error) {
 	}
 	defer Close(rows)
 
-	result := []net.IP{}
+	result := []ListOfTopItem{}
 
 	for rows.Next() {
-		var ip net.IP
-		var c int
-		if err := rows.Scan(&ip, &c); err != nil {
+		var item ListOfTopItem
+		if err := rows.Scan(&item.IP, &item.Count); err != nil {
 			return nil, err
 		}
 
-		result = append(result, ip)
+		result = append(result, item)
 	}
 
 	return result, nil

@@ -3,6 +3,7 @@ package traffic
 import (
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -193,4 +194,35 @@ func TestHttpBanPost(t *testing.T) {
 	exists, err = s.Ban.Exists(net.IPv4(127, 0, 0, 1))
 	assert.NoError(t, err)
 	assert.False(t, exists)
+}
+
+func TestTop(t *testing.T) {
+	config := LoadConfig()
+
+	s, err := NewService(config)
+	assert.NoError(t, err)
+	defer s.Close()
+
+	router := s.GetRouter()
+
+	err = s.Monitoring.Clear()
+	assert.NoError(t, err)
+
+	err = s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
+	assert.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		err = s.Monitoring.Add(net.IPv6loopback, time.Now())
+		assert.NoError(t, err)
+	}
+
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/top", nil)
+	assert.NoError(t, err)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	body, err := ioutil.ReadAll(w.Body)
+	assert.Equal(t, `[{"ip":"::1","count":10,"ban":null,"in_whitelist":false},{"ip":"192.168.0.1","count":1,"ban":null,"in_whitelist":false}]`, string(body))
 }

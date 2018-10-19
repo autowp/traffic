@@ -17,6 +17,14 @@ type BanPOSTRequest struct {
 	Reason   string        `json:"reason"`
 }
 
+// TopItem TopItem
+type TopItem struct {
+	IP          net.IP   `json:"ip"`
+	Count       int      `json:"count"`
+	Ban         *BanItem `json:"ban"`
+	InWhitelist bool     `json:"in_whitelist"`
+}
+
 // GetRouter GetRouter
 func (s *Service) GetRouter() *gin.Engine {
 	return s.router
@@ -25,6 +33,41 @@ func (s *Service) GetRouter() *gin.Engine {
 func (s *Service) setupRouter() {
 	r := gin.New()
 	r.Use(gin.Recovery())
+
+	r.GET("/top", func(c *gin.Context) {
+
+		items, err := s.Monitoring.ListOfTop(50)
+
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		result := make([]TopItem, len(items))
+		for idx, item := range items {
+
+			ban, err := s.Ban.Get(item.IP)
+			if err != nil {
+				c.String(http.StatusInternalServerError, err.Error())
+				return
+			}
+
+			inWhitelist, err := s.Whitelist.Exists(item.IP)
+			if err != nil {
+				c.String(http.StatusInternalServerError, err.Error())
+				return
+			}
+
+			result[idx] = TopItem{
+				IP:          item.IP,
+				Count:       item.Count,
+				Ban:         ban,
+				InWhitelist: inWhitelist,
+			}
+		}
+
+		c.JSON(http.StatusOK, result)
+	})
 
 	r.POST("/ban", func(c *gin.Context) {
 

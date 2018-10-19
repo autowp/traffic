@@ -226,14 +226,14 @@ func (s *Service) Close() {
 
 func (s *Service) autoWhitelist() error {
 
-	ips, err := s.Monitoring.ListOfTopIP(1000)
+	items, err := s.Monitoring.ListOfTop(1000)
 	if err != nil {
 		return err
 	}
 
-	for _, ip := range ips {
-		fmt.Printf("Check IP %v\n", ip)
-		if err := s.autoWhitelistIP(ip); err != nil {
+	for _, item := range items {
+		fmt.Printf("Check IP %v\n", item.IP)
+		if err := s.autoWhitelistIP(item.IP); err != nil {
 			return err
 		}
 	}
