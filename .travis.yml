@@ -11,6 +11,7 @@ go:
 before_script:
   - go get -t
   - go get -u github.com/kisielk/errcheck
+  - go get -u github.com/mattn/goveralls
   - errcheck ./...
   - sudo service mysql stop
   - docker-compose up -d
@@ -22,6 +23,7 @@ before_script:
 
 script:
   - go test -v -race || travis_terminate 1;
+  - $GOPATH/bin/goveralls -service=travis-ci || travis_terminate 1;
 
   - go build -ldflags "-s -w" -o build/package/traffic cmd/traffic/traffic.go || travis_terminate 1;
   - docker build build/package/ -t $DOCKER_REPO || travis_terminate 1;
