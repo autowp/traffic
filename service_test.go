@@ -205,6 +205,9 @@ func TestTop(t *testing.T) {
 
 	router := s.GetRouter()
 
+	err = s.Ban.Clear()
+	assert.NoError(t, err)
+
 	err = s.Monitoring.Clear()
 	assert.NoError(t, err)
 

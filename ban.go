@@ -175,3 +175,18 @@ func (s *Ban) GC() (int64, error) {
 
 	return affected, nil
 }
+
+// Clear removes all collected data
+func (s *Ban) Clear() error {
+	stmt, err := s.db.Prepare("DELETE FROM banned_ip")
+	if err != nil {
+		return err
+	}
+	defer Close(stmt)
+	_, err = stmt.Exec()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
