@@ -177,11 +177,11 @@ func NewService(config Config) (*Service, error) {
 		fmt.Println("AutoBan scheduler stopped")
 	}()
 
+	s.httpServer = &http.Server{Addr: s.config.HTTP.Listen, Handler: s.router}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		fmt.Println("HTTP server started")
-		s.httpServer = &http.Server{Addr: s.config.HTTP.Listen, Handler: s.router}
 		err := s.httpServer.ListenAndServe()
 		if err != nil {
 			// cannot panic, because this probably is an intentional close
