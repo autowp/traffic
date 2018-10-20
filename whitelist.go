@@ -14,6 +14,12 @@ type Whitelist struct {
 	loc *time.Location
 }
 
+// WhitelistItem WhitelistItem
+type WhitelistItem struct {
+	IP          net.IP `json:"ip"`
+	Description string `json:"description"`
+}
+
 // NewWhitelist constructor
 func NewWhitelist(db *sql.DB, loc *time.Location) (*Whitelist, error) {
 	return &Whitelist{
@@ -74,6 +80,49 @@ func (s *Whitelist) Add(ip net.IP, desc string) error {
 	defer Close(stmt)
 
 	return nil
+}
+
+// Get whitelist item
+func (s *Whitelist) Get(ip net.IP) (*WhitelistItem, error) {
+	var item WhitelistItem
+	err := s.db.QueryRow(`
+		SELECT ip, description
+		FROM ip_whitelist
+		WHERE ip = INET6_ATON(?)
+	`, ip.String()).Scan(&item.IP, item.Description)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &item, nil
+}
+
+// List whitelist items
+func (s *Whitelist) List() ([]WhitelistItem, error) {
+	result := make([]WhitelistItem, 0)
+	rows, err := s.db.Query(`
+		SELECT ip, description
+		FROM ip_whitelist
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer Close(rows)
+
+	for rows.Next() {
+		var item WhitelistItem
+		if err := rows.Scan(&item.IP, &item.Description); err != nil {
+			return nil, err
+		}
+
+		result = append(result, item)
+	}
+
+	return result, nil
 }
 
 // Exists whitelist already contains IP

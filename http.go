@@ -17,6 +17,12 @@ type BanPOSTRequest struct {
 	Reason   string        `json:"reason"`
 }
 
+// WhitelistPOSTRequest WhitelistPOSTRequest
+type WhitelistPOSTRequest struct {
+	IP          net.IP `json:"ip"`
+	Description string `json:"description"`
+}
+
 // TopItem TopItem
 type TopItem struct {
 	IP          net.IP   `json:"ip"`
@@ -33,6 +39,81 @@ func (s *Service) GetRouter() *gin.Engine {
 func (s *Service) setupRouter() {
 	r := gin.New()
 	r.Use(gin.Recovery())
+
+	r.GET("/whitelist", func(c *gin.Context) {
+		list, err := s.Whitelist.List()
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		c.JSON(http.StatusOK, list)
+	})
+
+	r.POST("/whitelist", func(c *gin.Context) {
+
+		request := WhitelistPOSTRequest{}
+		err := c.BindJSON(&request)
+
+		if err != nil {
+			fmt.Println(err)
+			c.String(http.StatusBadRequest, err.Error())
+			return
+		}
+
+		err = s.Whitelist.Add(request.IP, request.Description)
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		err = s.Ban.Remove(request.IP)
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		c.Header("Location", "/whitelist/"+request.IP.String())
+
+		c.Status(http.StatusCreated)
+	})
+
+	r.GET("/whitelist/:ip", func(c *gin.Context) {
+		ip := net.ParseIP(c.Param("ip"))
+		if ip == nil {
+			c.String(http.StatusBadRequest, "Invalid IP")
+			return
+		}
+
+		item, err := s.Whitelist.Get(ip)
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		if item == nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		c.JSON(http.StatusOK, item)
+	})
+
+	r.DELETE("/whitelist/:ip", func(c *gin.Context) {
+		ip := net.ParseIP(c.Param("ip"))
+		if ip == nil {
+			c.String(http.StatusBadRequest, "Invalid IP")
+			return
+		}
+
+		err := s.Whitelist.Remove(ip)
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		c.Status(http.StatusNoContent)
+	})
 
 	r.GET("/top", func(c *gin.Context) {
 
