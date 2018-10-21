@@ -9,6 +9,7 @@ go:
   - "1.10"
 
 before_script:
+  - mysql --version
   - go get -t
   - go get -u github.com/kisielk/errcheck
   - go get -u github.com/mattn/goveralls
