@@ -28,6 +28,29 @@ func TestService(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestMonitoringGC(t *testing.T) {
+
+	config := LoadConfig()
+
+	s, err := NewService(config)
+	assert.NoError(t, err)
+	defer s.Close()
+
+	err = s.Monitoring.Clear()
+	assert.NoError(t, err)
+
+	err = s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
+	assert.NoError(t, err)
+
+	affected, err := s.Monitoring.GC()
+	assert.NoError(t, err)
+	assert.Zero(t, affected)
+
+	items, err := s.Monitoring.ListOfTop(10)
+	assert.NoError(t, err)
+	assert.Len(t, items, 1)
+}
+
 func TestAutoWhitelist(t *testing.T) {
 
 	config := LoadConfig()
