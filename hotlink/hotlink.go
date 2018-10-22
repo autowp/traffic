@@ -300,7 +300,7 @@ func (s *Hotlink) AddToWhitelist(host string) error {
 	}
 
 	stmt, err := s.db.Prepare(`
-		INSERT INTO referer_whitelist (host)
+		INSERT IGNORE INTO referer_whitelist (host)
 		VALUES (?)
 	`)
 	if err != nil {
@@ -325,7 +325,7 @@ func (s *Hotlink) AddToBlacklist(host string) error {
 	}
 
 	stmt, err := s.db.Prepare(`
-		INSERT INTO referer_blacklist (host)
+		INSERT IGNORE INTO referer_blacklist (host)
 		VALUES (?)
 	`)
 	if err != nil {
@@ -375,8 +375,8 @@ func (s *Hotlink) DeleteFromBlacklist(host string) error {
 	return nil
 }
 
-// Delete Delete
-func (s *Hotlink) Delete() error {
+// Clear Clear
+func (s *Hotlink) Clear() error {
 	stmt, err := s.db.Prepare("DELETE FROM referer")
 	if err != nil {
 		return err

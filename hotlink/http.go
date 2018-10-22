@@ -36,7 +36,7 @@ func (s *Hotlink) SetupRouter(r *gin.Engine) {
 		if exists {
 			err = s.DeleteByHost(host)
 		} else {
-			err = s.Delete()
+			err = s.Clear()
 		}
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
@@ -77,7 +77,7 @@ func (s *Hotlink) SetupRouter(r *gin.Engine) {
 			return
 		}
 
-		err = s.AddToWhitelist(request.Host)
+		err = s.AddToBlacklist(request.Host)
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
