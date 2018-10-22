@@ -1,4 +1,4 @@
-package traffic
+package util
 
 import (
 	"fmt"

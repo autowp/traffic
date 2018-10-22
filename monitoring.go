@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autowp/traffic/util"
 	"github.com/streadway/amqp"
 )
 
@@ -21,7 +22,7 @@ type Monitoring struct {
 	queue        string
 	conn         *amqp.Connection
 	quit         chan bool
-	logger       *Logger
+	logger       *util.Logger
 	gcStopTicker chan bool
 }
 
@@ -38,7 +39,7 @@ type ListOfTopItem struct {
 }
 
 // NewMonitoring constructor
-func NewMonitoring(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, rabbitmMQ *amqp.Connection, queue string, logger *Logger) (*Monitoring, error) {
+func NewMonitoring(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, rabbitmMQ *amqp.Connection, queue string, logger *util.Logger) (*Monitoring, error) {
 	s := &Monitoring{
 		db:           db,
 		loc:          loc,
@@ -112,7 +113,7 @@ func (s *Monitoring) listen() error {
 	if err != nil {
 		return err
 	}
-	defer Close(ch)
+	defer util.Close(ch)
 
 	inQ, err := ch.QueueDeclare(
 		s.queue, // name
@@ -178,7 +179,7 @@ func (s *Monitoring) Add(ip net.IP, timestamp time.Time) error {
 	if err != nil {
 		return err
 	}
-	defer Close(stmt)
+	defer util.Close(stmt)
 
 	dateStr := timestamp.In(s.loc).Format("2006-01-02 15:04:05")
 	_, err = stmt.Exec(dateStr, dateStr, dateStr, dateStr, ip.String())
@@ -200,7 +201,7 @@ func (s *Monitoring) GC() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer Close(stmt)
+	defer util.Close(stmt)
 
 	affected, err := res.RowsAffected()
 	if err != nil {
@@ -216,7 +217,7 @@ func (s *Monitoring) Clear() error {
 	if err != nil {
 		return err
 	}
-	defer Close(stmt)
+	defer util.Close(stmt)
 	_, err = stmt.Exec()
 	if err != nil {
 		return err
@@ -231,7 +232,7 @@ func (s *Monitoring) ClearIP(ip net.IP) error {
 	if err != nil {
 		return err
 	}
-	defer Close(stmt)
+	defer util.Close(stmt)
 	_, err = stmt.Exec(ip.String())
 	if err != nil {
 		return err
@@ -256,7 +257,7 @@ func (s *Monitoring) ListOfTop(limit int) ([]ListOfTopItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer Close(rows)
+	defer util.Close(rows)
 
 	result := []ListOfTopItem{}
 
@@ -289,7 +290,7 @@ func (s *Monitoring) ListByBanProfile(profile AutobanProfile) ([]net.IP, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer Close(rows)
+	defer util.Close(rows)
 
 	result := []net.IP{}
 

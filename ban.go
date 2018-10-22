@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/autowp/traffic/util"
 )
 
 const banGCPeriod = time.Hour * 10
@@ -24,11 +26,11 @@ type Ban struct {
 	db           *sql.DB
 	loc          *time.Location
 	gcStopTicker chan bool
-	logger       *Logger
+	logger       *util.Logger
 }
 
 // NewBan constructor
-func NewBan(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, logger *Logger) (*Ban, error) {
+func NewBan(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, logger *util.Logger) (*Ban, error) {
 	s := &Ban{
 		db:           db,
 		loc:          loc,
@@ -83,7 +85,7 @@ func (s *Ban) Add(ip net.IP, duration time.Duration, byUserID int, reason string
 	if err != nil {
 		return err
 	}
-	defer Close(stmt)
+	defer util.Close(stmt)
 
 	upToStr := upTo.In(s.loc).Format("2006-01-02 15:04:05")
 	_, err = stmt.Exec(ip.String(), upToStr, byUserID, reason)
@@ -105,7 +107,7 @@ func (s *Ban) Remove(ip net.IP) error {
 	if err != nil {
 		return err
 	}
-	defer Close(stmt)
+	defer util.Close(stmt)
 
 	return nil
 }
@@ -166,7 +168,7 @@ func (s *Ban) GC() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer Close(stmt)
+	defer util.Close(stmt)
 
 	affected, err := res.RowsAffected()
 	if err != nil {
@@ -182,7 +184,7 @@ func (s *Ban) Clear() error {
 	if err != nil {
 		return err
 	}
-	defer Close(stmt)
+	defer util.Close(stmt)
 	_, err = stmt.Exec()
 	if err != nil {
 		return err

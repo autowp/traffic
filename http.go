@@ -37,8 +37,11 @@ func (s *Service) GetRouter() *gin.Engine {
 }
 
 func (s *Service) setupRouter() {
+
 	r := gin.New()
 	r.Use(gin.Recovery())
+
+	s.Hotlink.SetupRouter(r)
 
 	r.GET("/whitelist", func(c *gin.Context) {
 		list, err := s.Whitelist.List()
@@ -56,7 +59,6 @@ func (s *Service) setupRouter() {
 		err := c.BindJSON(&request)
 
 		if err != nil {
-			fmt.Println(err)
 			c.String(http.StatusBadRequest, err.Error())
 			return
 		}

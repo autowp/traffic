@@ -3,6 +3,8 @@ package traffic
 import (
 	"log"
 	"os"
+
+	"github.com/autowp/traffic/util"
 )
 
 // HTTPConfig HTTPConfig
@@ -12,12 +14,12 @@ type HTTPConfig struct {
 
 // Config Application config definition
 type Config struct {
-	RabbitMQ        string        `yaml:"rabbitmq"`
-	MonitoringQueue string        `yaml:"monitoring_queue"`
-	HotlinkQueue    string        `yaml:"hotlink_queue"`
-	Rollbar         RollbarConfig `yaml:"rollbar"`
-	DSN             string        `yaml:"dsn"`
-	HTTP            HTTPConfig    `yaml:"http"`
+	RabbitMQ        string             `yaml:"rabbitmq"`
+	MonitoringQueue string             `yaml:"monitoring_queue"`
+	HotlinkQueue    string             `yaml:"hotlink_queue"`
+	Rollbar         util.RollbarConfig `yaml:"rollbar"`
+	DSN             string             `yaml:"dsn"`
+	HTTP            HTTPConfig         `yaml:"http"`
 }
 
 // LoadConfig LoadConfig
@@ -27,7 +29,7 @@ func LoadConfig() Config {
 		RabbitMQ:        "amqp://guest:guest@" + os.Getenv("TRAFFIC_RABBITMQ_HOST") + ":" + os.Getenv("TRAFFIC_RABBITMQ_PORT") + "/",
 		MonitoringQueue: os.Getenv("TRAFFIC_MONITORING_QUEUE"),
 		HotlinkQueue:    os.Getenv("TRAFFIC_HOTLINK_QUEUE"),
-		Rollbar: RollbarConfig{
+		Rollbar: util.RollbarConfig{
 			Token:       os.Getenv("TRAFFIC_ROLLBAR_TOKEN"),
 			Environment: os.Getenv("TRAFFIC_ROLLBAR_ENVIRONMENT"),
 			Period:      os.Getenv("TRAFFIC_ROLLBAR_PERIOD"),

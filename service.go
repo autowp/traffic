@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autowp/traffic/hotlink"
+	"github.com/autowp/traffic/util"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql" // enable mysql driver
 	"github.com/streadway/amqp"
@@ -22,12 +24,12 @@ const banByUserID = 9
 // Service Main Object
 type Service struct {
 	config              Config
-	logger              *Logger
+	logger              *util.Logger
 	db                  *sql.DB
 	Whitelist           *Whitelist
 	Ban                 *Ban
 	Monitoring          *Monitoring
-	Hotlink             *Hotlink
+	Hotlink             *hotlink.Hotlink
 	Loc                 *time.Location
 	whitelistStopTicker chan bool
 	banStopTicker       chan bool
@@ -76,7 +78,7 @@ var AutobanProfiles = []AutobanProfile{
 // NewService constructor
 func NewService(config Config) (*Service, error) {
 
-	logger := NewLogger(config.Rollbar)
+	logger := util.NewLogger(config.Rollbar)
 
 	loc, _ := time.LoadLocation("UTC")
 
@@ -111,7 +113,7 @@ func NewService(config Config) (*Service, error) {
 		return nil, err
 	}
 
-	hotlink, err := NewHotlink(wg, db, loc, rabbitMQ, config.HotlinkQueue, logger)
+	hotlink, err := hotlink.New(wg, db, loc, rabbitMQ, config.HotlinkQueue, logger)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err

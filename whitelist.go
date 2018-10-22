@@ -6,6 +6,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/autowp/traffic/util"
 )
 
 // Whitelist Main Object
@@ -77,7 +79,7 @@ func (s *Whitelist) Add(ip net.IP, desc string) error {
 	if err != nil {
 		return err
 	}
-	defer Close(stmt)
+	defer util.Close(stmt)
 
 	return nil
 }
@@ -111,7 +113,7 @@ func (s *Whitelist) List() ([]WhitelistItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer Close(rows)
+	defer util.Close(rows)
 
 	for rows.Next() {
 		var item WhitelistItem
@@ -155,7 +157,7 @@ func (s *Whitelist) Remove(ip net.IP) error {
 	if err != nil {
 		return err
 	}
-	defer Close(stmt)
+	defer util.Close(stmt)
 
 	return nil
 }
