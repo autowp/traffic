@@ -235,7 +235,7 @@ func (s *Hotlink) Add(uri string, accept string, timestamp time.Time) error {
 // GC Garbage Collect
 func (s *Hotlink) GC() (int64, error) {
 
-	stmt, err := s.db.Prepare("DELETE FROM referer WHERE day_date < DATE_SUB(?, INTERVAL 1 DAY)")
+	stmt, err := s.db.Prepare("DELETE FROM referer WHERE last_date < DATE_SUB(?, INTERVAL 1 DAY)")
 	if err != nil {
 		return 0, err
 	}

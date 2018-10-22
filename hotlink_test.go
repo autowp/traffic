@@ -173,3 +173,24 @@ func TestHotlinkClearHost(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, items, 1)
 }
+
+func TestHotlinkGC(t *testing.T) {
+	config := LoadConfig()
+
+	s, err := NewService(config)
+	assert.NoError(t, err)
+	defer s.Close()
+
+	s.Hotlink.Clear()
+
+	err = s.Hotlink.Add("http://example.com/path-to-file", "image/jpeg", time.Now())
+	assert.NoError(t, err)
+
+	affected, err := s.Hotlink.GC()
+	assert.NoError(t, err)
+	assert.Zero(t, affected)
+
+	items, err := s.Hotlink.TopData()
+	assert.NoError(t, err)
+	assert.Len(t, items, 1)
+}
