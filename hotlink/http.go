@@ -31,7 +31,7 @@ func (s *Hotlink) SetupRouter(r *gin.Engine) {
 
 	r.DELETE("/hotlink/monitoring", func(c *gin.Context) {
 
-		host, exists := c.Params.Get("host")
+		host, exists := c.GetQuery("host")
 		var err error
 		if exists {
 			err = s.DeleteByHost(host)
