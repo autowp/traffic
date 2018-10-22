@@ -154,7 +154,8 @@ func TestHotlinkClearHost(t *testing.T) {
 
 	router := s.GetRouter()
 
-	s.Hotlink.Clear()
+	err = s.Hotlink.Clear()
+	assert.NoError(t, err)
 
 	err = s.Hotlink.Add("http://example.com/path-to-file", "image/jpeg", time.Now())
 	assert.NoError(t, err)
@@ -181,7 +182,8 @@ func TestHotlinkGC(t *testing.T) {
 	assert.NoError(t, err)
 	defer s.Close()
 
-	s.Hotlink.Clear()
+	err = s.Hotlink.Clear()
+	assert.NoError(t, err)
 
 	err = s.Hotlink.Add("http://example.com/path-to-file", "image/jpeg", time.Now())
 	assert.NoError(t, err)
