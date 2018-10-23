@@ -82,10 +82,30 @@ func NewService(config Config) (*Service, error) {
 
 	loc, _ := time.LoadLocation("UTC")
 
-	db, err := sql.Open("mysql", config.DSN)
-	if err != nil {
-		logger.Fatal(err)
-		return nil, err
+	start := time.Now()
+	timeout := 60 * time.Second
+
+	fmt.Println("Waiting for mysql")
+
+	var db *sql.DB
+	for {
+		db, err := sql.Open("mysql", config.DSN)
+		if err != nil {
+			return nil, err
+		}
+
+		err = db.Ping()
+		if err == nil {
+			break
+		}
+
+		if time.Since(start) > timeout {
+			logger.Fatal(err)
+			return nil, err
+		}
+
+		fmt.Print(".")
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	wg := &sync.WaitGroup{}

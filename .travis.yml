@@ -27,7 +27,6 @@ before_script:
   - chmod +x ./waitforit
   - source test.env
   - ./waitforit -address tcp://$TRAFFIC_RABBITMQ_HOST:$TRAFFIC_RABBITMQ_PORT -timeout 30 || travis_terminate 1;
-  - source test.env && ./waitformysql.sh
 
 script:
   - go test -v -race || travis_terminate 1;
