@@ -98,6 +98,7 @@ func NewService(config Config) (*Service, error) {
 
 		err = db.Ping()
 		if err == nil {
+			fmt.Println("Started.")
 			break
 		}
 
@@ -119,6 +120,7 @@ func NewService(config Config) (*Service, error) {
 	for {
 		rabbitMQ, err = amqp.Dial(config.RabbitMQ)
 		if err == nil {
+			fmt.Println("Started.")
 			break
 		}
 
