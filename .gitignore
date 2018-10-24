@@ -1,3 +1,4 @@
 /cmd/traffic/debug
 /traffic
 /build/package/traffic
+/build/package/migrations

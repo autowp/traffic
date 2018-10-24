@@ -34,6 +34,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update -qq -y && \
 COPY etc /etc
  
 COPY traffic /app/traffic
+
+COPY migrations /app/migrations
  
 COPY entrypoint.sh /entrypoint.sh
 
