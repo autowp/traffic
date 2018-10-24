@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -14,6 +16,10 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql" // enable mysql driver
 	"github.com/streadway/amqp"
+
+	"github.com/golang-migrate/migrate"
+	_ "github.com/golang-migrate/migrate/database/mysql" // enable mysql migrations
+	_ "github.com/golang-migrate/migrate/source/file"    // enable file migration source
 )
 
 const gcPeriod = time.Hour * 1
@@ -109,6 +115,12 @@ func NewService(config Config) (*Service, error) {
 
 		fmt.Print(".")
 		time.Sleep(100 * time.Millisecond)
+	}
+
+	err = applyMigrations(config.MigrationDSN)
+	if err != nil {
+		logger.Fatal(err)
+		return nil, err
 	}
 
 	start = time.Now()
@@ -233,6 +245,28 @@ func NewService(config Config) (*Service, error) {
 	}()
 
 	return s, nil
+}
+
+func applyMigrations(dsn string) error {
+	fmt.Println("Apply migrations")
+	ex, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	exPath := filepath.Dir(ex)
+
+	m, err := migrate.New("file://"+exPath+"/migrations", dsn)
+	if err != nil {
+		return err
+	}
+
+	err = m.Up()
+	if err != nil {
+		return err
+	}
+	fmt.Println("Migrations applied")
+
+	return nil
 }
 
 // Close Destructor

@@ -19,6 +19,7 @@ type Config struct {
 	HotlinkQueue    string             `yaml:"hotlink_queue"`
 	Rollbar         util.RollbarConfig `yaml:"rollbar"`
 	DSN             string             `yaml:"dsn"`
+	MigrationDSN    string             `yaml:"migration-dsn"`
 	HTTP            HTTPConfig         `yaml:"http"`
 }
 
@@ -35,6 +36,9 @@ func LoadConfig() Config {
 			Period:      os.Getenv("TRAFFIC_ROLLBAR_PERIOD"),
 		},
 		DSN: os.Getenv("TRAFFIC_MYSQL_USERNAME") + ":" + os.Getenv("TRAFFIC_MYSQL_PASSWORD") +
+			"@tcp(" + os.Getenv("TRAFFIC_MYSQL_HOST") + ":" + os.Getenv("TRAFFIC_MYSQL_PORT") + ")/" +
+			os.Getenv("TRAFFIC_MYSQL_DBNAME") + "?charset=utf8mb4&parseTime=true&loc=UTC",
+		MigrationDSN: "mysql://" + os.Getenv("TRAFFIC_MYSQL_USERNAME") + ":" + os.Getenv("TRAFFIC_MYSQL_PASSWORD") +
 			"@tcp(" + os.Getenv("TRAFFIC_MYSQL_HOST") + ":" + os.Getenv("TRAFFIC_MYSQL_PORT") + ")/" +
 			os.Getenv("TRAFFIC_MYSQL_DBNAME") + "?charset=utf8mb4&parseTime=true&loc=UTC",
 		HTTP: HTTPConfig{
