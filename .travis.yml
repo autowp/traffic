@@ -15,10 +15,12 @@ addons:
     packages:
       - mysql-client
 
+install: true
 
 before_script:
+  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+  - dep ensure
   - mysql --version
-  - go get -t
   - go get -u github.com/kisielk/errcheck
   - go get -u github.com/mattn/goveralls
   - errcheck ./...
