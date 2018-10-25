@@ -117,8 +117,8 @@ func NewService(config Config) (*Service, error) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	err = applyMigrations(config.MigrationDSN)
-	if err != nil {
+	err = applyMigrations(config.Migrations)
+	if err != nil && err != migrate.ErrNoChange {
 		logger.Fatal(err)
 		return nil, err
 	}
@@ -247,15 +247,20 @@ func NewService(config Config) (*Service, error) {
 	return s, nil
 }
 
-func applyMigrations(dsn string) error {
+func applyMigrations(config MigrationsConfig) error {
 	fmt.Println("Apply migrations")
-	ex, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	exPath := filepath.Dir(ex)
 
-	m, err := migrate.New("file://"+exPath+"/migrations", dsn)
+	dir := config.Dir
+	if dir == "" {
+		ex, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		exPath := filepath.Dir(ex)
+		dir = exPath + "/migrations"
+	}
+
+	m, err := migrate.New("file://"+dir, config.DSN)
 	if err != nil {
 		return err
 	}

@@ -12,6 +12,11 @@ type HTTPConfig struct {
 	Listen string `yaml:"listen"`
 }
 
+type MigrationsConfig struct {
+	DSN string `yaml:"dsn"`
+	Dir string `yaml:"dir"`
+}
+
 // Config Application config definition
 type Config struct {
 	RabbitMQ        string             `yaml:"rabbitmq"`
@@ -19,7 +24,7 @@ type Config struct {
 	HotlinkQueue    string             `yaml:"hotlink_queue"`
 	Rollbar         util.RollbarConfig `yaml:"rollbar"`
 	DSN             string             `yaml:"dsn"`
-	MigrationDSN    string             `yaml:"migration-dsn"`
+	Migrations      MigrationsConfig   `yaml:"migrations"`
 	HTTP            HTTPConfig         `yaml:"http"`
 }
 
@@ -38,11 +43,14 @@ func LoadConfig() Config {
 		DSN: os.Getenv("TRAFFIC_MYSQL_USERNAME") + ":" + os.Getenv("TRAFFIC_MYSQL_PASSWORD") +
 			"@tcp(" + os.Getenv("TRAFFIC_MYSQL_HOST") + ":" + os.Getenv("TRAFFIC_MYSQL_PORT") + ")/" +
 			os.Getenv("TRAFFIC_MYSQL_DBNAME") + "?charset=utf8mb4&parseTime=true&loc=UTC",
-		MigrationDSN: "mysql://" + os.Getenv("TRAFFIC_MYSQL_USERNAME") + ":" + os.Getenv("TRAFFIC_MYSQL_PASSWORD") +
-			"@tcp(" + os.Getenv("TRAFFIC_MYSQL_HOST") + ":" + os.Getenv("TRAFFIC_MYSQL_PORT") + ")/" +
-			os.Getenv("TRAFFIC_MYSQL_DBNAME") + "?charset=utf8mb4&parseTime=true&loc=UTC",
 		HTTP: HTTPConfig{
 			Listen: os.Getenv("TRAFFIC_HTTP_LISTEN"),
+		},
+		Migrations: MigrationsConfig{
+			DSN: "mysql://" + os.Getenv("TRAFFIC_MYSQL_USERNAME") + ":" + os.Getenv("TRAFFIC_MYSQL_PASSWORD") +
+				"@tcp(" + os.Getenv("TRAFFIC_MYSQL_HOST") + ":" + os.Getenv("TRAFFIC_MYSQL_PORT") + ")/" +
+				os.Getenv("TRAFFIC_MYSQL_DBNAME") + "?charset=utf8mb4&parseTime=true&loc=UTC",
+			Dir: os.Getenv("TRAFFIC_MIGRATIONS_DIR"),
 		},
 	}
 
