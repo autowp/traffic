@@ -11,6 +11,7 @@ go:
 install: true
 
 before_script:
+  - sudo service mysql stop
   - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
   - dep ensure
   - go get -u github.com/kisielk/errcheck
