@@ -213,7 +213,7 @@ func (s *Hotlink) Add(uri string, accept string, timestamp time.Time) error {
 	}
 
 	stmt, err := s.db.Prepare(`
-		INSERT INTO referer (host, url, count, last_date, accept)
+		INSERT INTO hotlink_referer (host, url, count, last_date, accept)
 		VALUES (?, ?, 1, ?, LEFT(?, ?))
 		ON DUPLICATE KEY
 		UPDATE count=count+1, host=VALUES(host), last_date=VALUES(last_date), accept=VALUES(accept)
@@ -235,7 +235,7 @@ func (s *Hotlink) Add(uri string, accept string, timestamp time.Time) error {
 // GC Garbage Collect
 func (s *Hotlink) GC() (int64, error) {
 
-	stmt, err := s.db.Prepare("DELETE FROM referer WHERE last_date < DATE_SUB(?, INTERVAL 1 DAY)")
+	stmt, err := s.db.Prepare("DELETE FROM hotlink_referer WHERE last_date < DATE_SUB(?, INTERVAL 1 DAY)")
 	if err != nil {
 		return 0, err
 	}
@@ -258,7 +258,7 @@ func (s *Hotlink) IsHostWhitelisted(host string) (bool, error) {
 	var exists bool
 	err := s.db.QueryRow(`
 		SELECT true
-		FROM referer_whitelist
+		FROM hotlink_whitelist
 		WHERE host = ?
 	`, host).Scan(&exists)
 	if err != nil {
@@ -277,7 +277,7 @@ func (s *Hotlink) IsHostBlacklisted(host string) (bool, error) {
 	var exists bool
 	err := s.db.QueryRow(`
 		SELECT true
-		FROM referer_blacklist
+		FROM hotlink_blacklist
 		WHERE host = ?
 	`, host).Scan(&exists)
 	if err != nil {
@@ -300,7 +300,7 @@ func (s *Hotlink) AddToWhitelist(host string) error {
 	}
 
 	stmt, err := s.db.Prepare(`
-		INSERT IGNORE INTO referer_whitelist (host)
+		INSERT IGNORE INTO hotlink_whitelist (host)
 		VALUES (?)
 	`)
 	if err != nil {
@@ -325,7 +325,7 @@ func (s *Hotlink) AddToBlacklist(host string) error {
 	}
 
 	stmt, err := s.db.Prepare(`
-		INSERT IGNORE INTO referer_blacklist (host)
+		INSERT IGNORE INTO hotlink_blacklist (host)
 		VALUES (?)
 	`)
 	if err != nil {
@@ -344,7 +344,7 @@ func (s *Hotlink) AddToBlacklist(host string) error {
 // DeleteFromWhitelist removes item from hotlinks whitelist
 func (s *Hotlink) DeleteFromWhitelist(host string) error {
 
-	stmt, err := s.db.Prepare("DELETE FROM referer_whitelist WHERE host = ?")
+	stmt, err := s.db.Prepare("DELETE FROM hotlink_whitelist WHERE host = ?")
 	if err != nil {
 		return err
 	}
@@ -361,7 +361,7 @@ func (s *Hotlink) DeleteFromWhitelist(host string) error {
 // DeleteFromBlacklist removes item from hotlinks blacklist
 func (s *Hotlink) DeleteFromBlacklist(host string) error {
 
-	stmt, err := s.db.Prepare("DELETE FROM referer_blacklist WHERE host = ?")
+	stmt, err := s.db.Prepare("DELETE FROM hotlink_blacklist WHERE host = ?")
 	if err != nil {
 		return err
 	}
@@ -377,7 +377,7 @@ func (s *Hotlink) DeleteFromBlacklist(host string) error {
 
 // Clear Clear
 func (s *Hotlink) Clear() error {
-	stmt, err := s.db.Prepare("DELETE FROM referer")
+	stmt, err := s.db.Prepare("DELETE FROM hotlink_referer")
 	if err != nil {
 		return err
 	}
@@ -393,7 +393,7 @@ func (s *Hotlink) Clear() error {
 
 // DeleteByHost DeleteByHost
 func (s *Hotlink) DeleteByHost(host string) error {
-	stmt, err := s.db.Prepare("DELETE FROM referer WHERE host = ?")
+	stmt, err := s.db.Prepare("DELETE FROM hotlink_referer WHERE host = ?")
 	if err != nil {
 		return err
 	}
@@ -412,7 +412,7 @@ func (s *Hotlink) getMonitoringItems(host string, count int) ([]MonitoringItem, 
 
 	rows, err := s.db.Query(`
 		SELECT url, count, accept
-		FROM referer
+		FROM hotlink_referer
 		WHERE last_date >= DATE_SUB(?, INTERVAL 1 DAY) AND host = ?
 		ORDER BY count DESC
 		LIMIT ?
@@ -443,7 +443,7 @@ func (s *Hotlink) TopData() ([]TopItem, error) {
 
 	rows, err := s.db.Query(`
 		SELECT host, SUM(count) AS count
-		FROM referer
+		FROM hotlink_referer
 		WHERE last_date >= DATE_SUB(?, INTERVAL 1 DAY)
 		GROUP BY host
 		ORDER BY count DESC

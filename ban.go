@@ -16,7 +16,7 @@ const banGCPeriod = time.Hour * 10
 // BanItem BanItem
 type BanItem struct {
 	IP       net.IP    `json:"ip"`
-	UpTo     time.Time `json:"up_to"`
+	Until    time.Time `json:"up_to"`
 	ByUserID int       `json:"by_user_id"`
 	Reason   string    `json:"reason"`
 }
@@ -78,9 +78,9 @@ func (s *Ban) Add(ip net.IP, duration time.Duration, byUserID int, reason string
 	upTo := time.Now().Add(duration)
 
 	stmt, err := s.db.Prepare(`
-		INSERT INTO banned_ip (ip, up_to, by_user_id, reason)
+		INSERT INTO ip_ban (ip, until, by_user_id, reason)
 		VALUES (INET6_ATON(?), ?, ?, ?)
-		ON DUPLICATE KEY UPDATE up_to=VALUES(up_to), by_user_id=VALUES(by_user_id), reason=VALUES(reason)
+		ON DUPLICATE KEY UPDATE until=VALUES(until), by_user_id=VALUES(by_user_id), reason=VALUES(reason)
 	`)
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (s *Ban) Add(ip net.IP, duration time.Duration, byUserID int, reason string
 // Remove IP from list of banned
 func (s *Ban) Remove(ip net.IP) error {
 
-	stmt, err := s.db.Prepare("DELETE FROM banned_ip WHERE ip = INET6_ATON(?)")
+	stmt, err := s.db.Prepare("DELETE FROM ip_ban WHERE ip = INET6_ATON(?)")
 	if err != nil {
 		return err
 	}
@@ -120,8 +120,8 @@ func (s *Ban) Exists(ip net.IP) (bool, error) {
 	var exists bool
 	err := s.db.QueryRow(`
 		SELECT 1
-		FROM banned_ip
-		WHERE ip = INET6_ATON(?) AND up_to >= ?
+		FROM ip_ban
+		WHERE ip = INET6_ATON(?) AND until >= ?
 	`, ip.String(), nowStr).Scan(&exists)
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -141,10 +141,10 @@ func (s *Ban) Get(ip net.IP) (*BanItem, error) {
 
 	item := BanItem{}
 	err := s.db.QueryRow(`
-		SELECT ip, up_to, reason, by_user_id
-		FROM banned_ip
-		WHERE ip = INET6_ATON(?) AND up_to >= ?
-	`, ip.String(), nowStr).Scan(&item.IP, &item.UpTo, &item.Reason, &item.ByUserID)
+		SELECT ip, until, reason, by_user_id
+		FROM ip_ban
+		WHERE ip = INET6_ATON(?) AND until >= ?
+	`, ip.String(), nowStr).Scan(&item.IP, &item.Until, &item.Reason, &item.ByUserID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -158,7 +158,7 @@ func (s *Ban) Get(ip net.IP) (*BanItem, error) {
 
 // GC Grablage Collect
 func (s *Ban) GC() (int64, error) {
-	stmt, err := s.db.Prepare("DELETE FROM banned_ip WHERE up_to < ?")
+	stmt, err := s.db.Prepare("DELETE FROM ip_ban WHERE until < ?")
 	if err != nil {
 		return 0, err
 	}
@@ -180,7 +180,7 @@ func (s *Ban) GC() (int64, error) {
 
 // Clear removes all collected data
 func (s *Ban) Clear() error {
-	stmt, err := s.db.Prepare("DELETE FROM banned_ip")
+	stmt, err := s.db.Prepare("DELETE FROM ip_ban")
 	if err != nil {
 		return err
 	}

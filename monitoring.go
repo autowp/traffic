@@ -172,7 +172,7 @@ func (s *Monitoring) listen() error {
 // Add item to monitoring
 func (s *Monitoring) Add(ip net.IP, timestamp time.Time) error {
 	stmt, err := s.db.Prepare(`
-		INSERT INTO ip_monitoring4 (day_date, hour, tenminute, minute, ip, count)
+		INSERT INTO ip_monitoring (day_date, hour, tenminute, minute, ip, count)
 		VALUES (?, HOUR(?), FLOOR(MINUTE(?)/10), MINUTE(?), INET6_ATON(?), 1)
 		ON DUPLICATE KEY UPDATE count=count+1
 	`)
@@ -193,7 +193,7 @@ func (s *Monitoring) Add(ip net.IP, timestamp time.Time) error {
 // GC Garbage Collect
 func (s *Monitoring) GC() (int64, error) {
 
-	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4 WHERE day_date < ?")
+	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring WHERE day_date < ?")
 	if err != nil {
 		return 0, err
 	}
@@ -213,7 +213,7 @@ func (s *Monitoring) GC() (int64, error) {
 
 // Clear removes all collected data
 func (s *Monitoring) Clear() error {
-	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4")
+	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring")
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (s *Monitoring) Clear() error {
 
 // ClearIP removes all data collected for IP
 func (s *Monitoring) ClearIP(ip net.IP) error {
-	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring4 WHERE ip = INET6_ATON(?)")
+	stmt, err := s.db.Prepare("DELETE FROM ip_monitoring WHERE ip = INET6_ATON(?)")
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func (s *Monitoring) ListOfTop(limit int) ([]ListOfTopItem, error) {
 
 	rows, err := s.db.Query(`
 		SELECT ip, SUM(count) AS c
-		FROM ip_monitoring4
+		FROM ip_monitoring
 		WHERE day_date = ?
 		GROUP BY ip
 		ORDER BY c DESC
@@ -281,7 +281,7 @@ func (s *Monitoring) ListByBanProfile(profile AutobanProfile) ([]net.IP, error) 
 
 	rows, err := s.db.Query(`
 		SELECT ip, SUM(count) AS c
-		FROM ip_monitoring4
+		FROM ip_monitoring
 		WHERE day_date = ?
 		GROUP BY `+strings.Join(group, ", ")+`
 		HAVING c > ?
@@ -312,7 +312,7 @@ func (s *Monitoring) ExistsIP(ip net.IP) (bool, error) {
 	var exists bool
 	err := s.db.QueryRow(`
 		SELECT 1
-		FROM ip_monitoring4
+		FROM ip_monitoring
 		WHERE ip = INET6_ATON(?)
 		LIMIT 1
 	`, ip.String()).Scan(&exists)
