@@ -2,6 +2,7 @@ package traffic
 
 import (
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"strings"
@@ -34,6 +35,18 @@ func NewWhitelist(db *sql.DB, loc *time.Location) (*Whitelist, error) {
 func (s *Whitelist) MatchAuto(ip net.IP) (bool, string) {
 
 	ipText := ip.String()
+	ipWithDashes := strings.Replace(ipText, ".", "-", -1)
+
+	msnHost := "msnbot-" + ipWithDashes + ".search.msn.com."
+	yandexComHost := ipWithDashes + ".spider.yandex.com."
+	googlebotHost := "crawl-" + ipWithDashes + ".googlebot.com."
+
+	isIPv6 := len(ip) == net.IPv6len
+	ip16 := ip.To16()
+
+	fmt.Printf("ZZZ=%v\n", ip16.String())
+
+	yandexComIPv6Host := hex.EncodeToString(ip16[12:14]) + "-" + hex.EncodeToString(ip16[14:16]) + ".spider.yandex.com."
 
 	hosts, err := net.LookupAddr(ipText)
 	if err != nil {
@@ -44,12 +57,6 @@ func (s *Whitelist) MatchAuto(ip net.IP) (bool, string) {
 
 		fmt.Print(host + " ")
 
-		ipWithDashes := strings.Replace(ipText, ".", "-", -1)
-
-		msnHost := "msnbot-" + ipWithDashes + ".search.msn.com."
-		yandexComHost := ipWithDashes + ".spider.yandex.com."
-		googlebotHost := "crawl-" + ipWithDashes + ".googlebot.com."
-
 		if host == msnHost {
 			return true, "msnbot autodetect"
 		}
@@ -58,6 +65,9 @@ func (s *Whitelist) MatchAuto(ip net.IP) (bool, string) {
 		}
 		if host == googlebotHost {
 			return true, "googlebot autodetect"
+		}
+		if isIPv6 && host == yandexComIPv6Host {
+			return true, "yandex.com ipv6 autodetect"
 		}
 	}
 

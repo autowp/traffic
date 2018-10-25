@@ -24,6 +24,10 @@ func TestMatchAuto(t *testing.T) {
 	match, _ = s.Whitelist.MatchAuto(net.IPv4(157, 55, 39, 127)) // msn
 	assert.True(t, match)
 
+	ip := net.IP{0x2a, 0x02, 0x06, 0xb8, 0xb0, 0x10, 0xa2, 0xfa, 0xfe, 0xaa, 0x00, 0x00, 0x8d, 0x08, 0x8e, 0xb7}
+	match, _ = s.Whitelist.MatchAuto(ip) // yandex ipv6
+	assert.True(t, match)
+
 	match, _ = s.Whitelist.MatchAuto(net.IPv4(127, 0, 0, 1)) // loopback
 	assert.False(t, match)
 
