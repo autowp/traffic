@@ -6,19 +6,18 @@ services:
   - docker
 
 go:
-  - "1.10"
+  - "1.14"
 
 install: true
 
 before_script:
   - sudo service mysql stop
-  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-  - dep ensure
+  - go mod verify
   - go get -u github.com/kisielk/errcheck
   - go get -u github.com/mattn/goveralls
   - errcheck ./...
   - docker-compose up -d
-  - wget -q -O ./waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.0/waitforit-linux_amd64
+  - wget -q -O ./waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.1/waitforit-linux_amd64
   - chmod +x ./waitforit
   - source test.env
   - ./waitforit -address tcp://$TRAFFIC_RABBITMQ_HOST:$TRAFFIC_RABBITMQ_PORT -timeout 30 || travis_terminate 1;
