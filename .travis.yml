@@ -8,6 +8,12 @@ services:
 go:
   - "1.14"
 
+addons:
+  sonarcloud:
+    organization: "autowp-github"
+    token:
+      secure: $SONARCLOUD_TOKEN
+
 install: true
 
 before_script:
