@@ -3,3 +3,4 @@
 /build/package/traffic
 /build/package/migrations
 /vendor
+/cov.out

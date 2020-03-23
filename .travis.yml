@@ -23,7 +23,8 @@ before_script:
   - ./waitforit -address tcp://$TRAFFIC_RABBITMQ_HOST:$TRAFFIC_RABBITMQ_PORT -timeout 30 || travis_terminate 1;
 
 script:
-  - go test -v -race || travis_terminate 1;
+  - go test -v -race -coverprofile=cov.out || travis_terminate 1;
+  - sonar-scanner -Dsonar.login=$SONARCLOUD_TOKEN || true;
   - goveralls -service=travis-ci || travis_terminate 1;
 
   - go build -ldflags "-s -w" -o build/package/traffic cmd/traffic/traffic.go || travis_terminate 1;
