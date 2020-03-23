@@ -86,7 +86,7 @@ func NewService(config Config) (*Service, error) {
 
 	var err error
 
-	logger := util.NewLogger(config.Rollbar)
+	logger := util.NewLogger(config.Sentry)
 
 	loc, _ := time.LoadLocation("UTC")
 
@@ -99,6 +99,7 @@ func NewService(config Config) (*Service, error) {
 	for {
 		db, err = sql.Open("mysql", config.DSN)
 		if err != nil {
+			fmt.Println(err)
 			return nil, err
 		}
 
@@ -113,6 +114,7 @@ func NewService(config Config) (*Service, error) {
 			return nil, err
 		}
 
+		fmt.Println(err)
 		fmt.Print(".")
 		time.Sleep(100 * time.Millisecond)
 	}

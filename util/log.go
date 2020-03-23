@@ -3,23 +3,37 @@ package util
 import (
 	"fmt"
 	"log"
+
+	"github.com/getsentry/sentry-go"
 )
+
+// SentryConfig config
+type SentryConfig struct {
+	DSN         string `yaml:"dsn"`
+	Environment string `yaml:"environment"`
+}
 
 // Logger wraps log infrastructure
 type Logger struct {
-	rollbar *Rollbar
 }
 
 // NewLogger Constructor
-func NewLogger(config RollbarConfig) *Logger {
-	return &Logger{
-		rollbar: NewRollbar(config),
+func NewLogger(config SentryConfig) *Logger {
+
+	err := sentry.Init(sentry.ClientOptions{
+		Dsn:         config.DSN,
+		Environment: config.Environment,
+	})
+	if err != nil {
+		log.Fatalf("sentry.Init: %s", err)
 	}
+
+	return &Logger{}
 }
 
 // Fatal error
 func (l *Logger) Fatal(err error) {
-	l.rollbar.Critical(err)
+	sentry.CaptureException(err)
 	log.Fatal(err)
 }
 
@@ -31,7 +45,7 @@ func (l *Logger) Fatalf(format string, v ...interface{}) {
 
 // Warning error
 func (l *Logger) Warning(err error) {
-	l.rollbar.Warning(err)
+	sentry.CaptureException(err)
 	log.Print(err)
 }
 

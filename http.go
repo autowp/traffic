@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-gonic/gin"
 )
 
@@ -40,6 +41,8 @@ func (s *Service) setupRouter() {
 
 	r := gin.New()
 	r.Use(gin.Recovery())
+
+	r.Use(sentrygin.New(sentrygin.Options{}))
 
 	s.Hotlink.SetupRouter(r)
 

@@ -93,6 +93,8 @@ func (s *Ban) Add(ip net.IP, duration time.Duration, byUserID int, reason string
 		return err
 	}
 
+	s.logger.Warningf("%v was banned. Reason: %s", ip.String(), reason)
+
 	return nil
 }
 

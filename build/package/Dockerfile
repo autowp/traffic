@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu:focal
 
 LABEL app_name="autowp.traffic"
 LABEL maintainer="dmitry@pereslegin.ru"
@@ -6,24 +6,23 @@ LABEL maintainer="dmitry@pereslegin.ru"
 ENV TRAFFIC_INPUT_HOST "localhost"
 ENV TRAFFIC_INPUT_PORT "5672"
 ENV TRAFFIC_INPUT_QUEUE "input"
-ENV TRAFFIC_MYSQL_HOST "localhost"
-ENV TRAFFIC_MYSQL_PORT "3306"
-ENV TRAFFIC_MYSQL_USERNAME "root"
-ENV TRAFFIC_MYSQL_PASSWORD "root"
-ENV TRAFFIC_MYSQL_DBNAME "traffic"
-ENV TRAFFIC_ROLLBAR_TOKEN ""
-ENV TRAFFIC_ROLLBAR_ENVIRONMENT "production"
-ENV TRAFFIC_ROLLBAR_PERIOD "1m"
+ENV TRAFFIC_MYSQL_DSN "root:password@tcp(localhost:3306)/traffic"
+ENV TRAFFIC_MIGRATIONS_DSN "mysql://root:password@tcp(localhost)/traffic"
+ENV TRAFFIC_SENTRY_DSN ""
+ENV TRAFFIC_SENTRY_ENVIRONMENT "production"
 
 VOLUME /var/log
   
 WORKDIR /app
 
+ENTRYPOINT ["./traffic"]
+
+COPY entrypoint.sh /entrypoint.sh
+
 RUN DEBIAN_FRONTEND=noninteractive apt-get update -qq -y && \
     DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -qq -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -qq -y \
         ca-certificates \
-        supervisor \
         wget && \
     DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && \
     DEBIAN_FRONTEND=noninteractive apt-get autoclean -y && \
@@ -36,7 +35,3 @@ COPY etc /etc
 COPY traffic /app/traffic
 
 COPY migrations /app/migrations
- 
-COPY entrypoint.sh /entrypoint.sh
-
-ENTRYPOINT ["sh", "/entrypoint.sh"]
