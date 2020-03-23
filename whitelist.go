@@ -44,8 +44,6 @@ func (s *Whitelist) MatchAuto(ip net.IP) (bool, string) {
 	isIPv6 := len(ip) == net.IPv6len
 	ip16 := ip.To16()
 
-	fmt.Printf("ZZZ=%v\n", ip16.String())
-
 	yandexComIPv6Host := hex.EncodeToString(ip16[12:14]) + "-" + hex.EncodeToString(ip16[14:16]) + ".spider.yandex.com."
 
 	hosts, err := net.LookupAddr(ipText)

@@ -12,6 +12,7 @@ type HTTPConfig struct {
 	Listen string `yaml:"listen"`
 }
 
+// MigrationsConfig MigrationsConfig
 type MigrationsConfig struct {
 	DSN string `yaml:"dsn"`
 	Dir string `yaml:"dir"`
@@ -48,7 +49,7 @@ func LoadConfig() Config {
 		},
 		Migrations: MigrationsConfig{
 			DSN: "mysql://" + os.Getenv("TRAFFIC_MYSQL_USERNAME") + ":" + os.Getenv("TRAFFIC_MYSQL_PASSWORD") +
-				"@tcp(" + os.Getenv("TRAFFIC_MYSQL_HOST") + ":" + os.Getenv("TRAFFIC_MYSQL_PORT") + ")/" +
+				"@tcp(" + os.Getenv("TRAFFIC_MYSQL_HOST") + ")/" +
 				os.Getenv("TRAFFIC_MYSQL_DBNAME") + "?charset=utf8mb4&parseTime=true&loc=UTC",
 			Dir: os.Getenv("TRAFFIC_MIGRATIONS_DIR"),
 		},
