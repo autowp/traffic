@@ -15,7 +15,7 @@ VOLUME /var/log
   
 WORKDIR /app
 
-ENTRYPOINT ["./traffic"]
+ENTRYPOINT ["sh", "/entrypoint.sh"]
 
 COPY entrypoint.sh /entrypoint.sh
 
@@ -27,11 +27,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update -qq -y && \
     DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && \
     DEBIAN_FRONTEND=noninteractive apt-get autoclean -y && \
     \
-    wget -q -O /usr/local/bin/waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.0/waitforit-linux_amd64 && \
+    wget -q -O /usr/local/bin/waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.1/waitforit-linux_amd64 && \
     chmod +x /usr/local/bin/waitforit
  
-COPY etc /etc
- 
+
 COPY traffic /app/traffic
 
 COPY migrations /app/migrations
