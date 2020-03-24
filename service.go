@@ -56,25 +56,25 @@ type AutobanProfile struct {
 // AutobanProfiles AutobanProfiles
 var AutobanProfiles = []AutobanProfile{
 	AutobanProfile{
-		Limit:  6000,
+		Limit:  10000,
 		Reason: "daily limit",
 		Group:  []string{},
 		Time:   time.Hour * 10 * 24,
 	},
 	AutobanProfile{
-		Limit:  2400,
+		Limit:  3600,
 		Reason: "hourly limit",
 		Group:  []string{"hour"},
 		Time:   time.Hour * 5 * 24,
 	},
 	AutobanProfile{
-		Limit:  900,
+		Limit:  1200,
 		Reason: "ten min limit",
 		Group:  []string{"hour", "tenminute"},
 		Time:   time.Hour * 24,
 	},
 	AutobanProfile{
-		Limit:  300,
+		Limit:  500,
 		Reason: "min limit",
 		Group:  []string{"hour", "tenminute", "minute"},
 		Time:   time.Hour * 12,
