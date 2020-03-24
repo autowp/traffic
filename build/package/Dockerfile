@@ -3,13 +3,13 @@ FROM ubuntu:focal
 LABEL app_name="autowp.traffic"
 LABEL maintainer="dmitry@pereslegin.ru"
 
-ENV TRAFFIC_INPUT_HOST "localhost"
-ENV TRAFFIC_INPUT_PORT "5672"
-ENV TRAFFIC_INPUT_QUEUE "input"
-ENV TRAFFIC_MYSQL_DSN "root:password@tcp(localhost:3306)/traffic"
-ENV TRAFFIC_MIGRATIONS_DSN "mysql://root:password@tcp(localhost)/traffic"
-ENV TRAFFIC_SENTRY_DSN ""
-ENV TRAFFIC_SENTRY_ENVIRONMENT "production"
+ENV TRAFFIC_INPUT_HOST="localhost" \
+    TRAFFIC_INPUT_PORT="5672" \
+    TRAFFIC_INPUT_QUEUE="input" \
+    TRAFFIC_MYSQL_DSN="root:password@tcp(localhost:3306)/traffic" \
+    TRAFFIC_MIGRATIONS_DSN="mysql://root:password@tcp(localhost)/traffic" \
+    TRAFFIC_SENTRY_DSN="" \
+    TRAFFIC_SENTRY_ENVIRONMENT="production"
 
 VOLUME /var/log
   
