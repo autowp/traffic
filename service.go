@@ -74,7 +74,7 @@ var AutobanProfiles = []AutobanProfile{
 		Time:   time.Hour * 24,
 	},
 	AutobanProfile{
-		Limit:  500,
+		Limit:  700,
 		Reason: "min limit",
 		Group:  []string{"hour", "tenminute", "minute"},
 		Time:   time.Hour * 12,
