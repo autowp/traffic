@@ -88,12 +88,19 @@ func (s *Ban) Add(ip net.IP, duration time.Duration, byUserID int, reason string
 	defer util.Close(stmt)
 
 	upToStr := upTo.In(s.loc).Format("2006-01-02 15:04:05")
-	_, err = stmt.Exec(ip.String(), upToStr, byUserID, reason)
+	r, err := stmt.Exec(ip.String(), upToStr, byUserID, reason)
 	if err != nil {
 		return err
 	}
 
-	s.logger.Warningf("%v was banned. Reason: %s", ip.String(), reason)
+	affected, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if affected == 1 {
+		s.logger.Warningf("%v was banned. Reason: %s", ip.String(), reason)
+	}
 
 	return nil
 }
