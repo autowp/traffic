@@ -15,6 +15,7 @@ addons:
   apt:
     packages:
       - rabbitmq-server
+  postgresql: "13"
   sonarcloud:
     organization: "autowp-github"
     token:
