@@ -35,10 +35,10 @@ before_script:
   - chmod +x ./waitforit
   - ./waitforit -address tcp://127.0.0.1:5433 -timeout 30 || travis_terminate 1;
   - ./waitforit -address tcp://127.0.0.1:5672 -timeout 30 || travis_terminate 1;
-  - psql -c 'CREATE DATABASE traffic;' -U postgres
-  - psql -c 'CREATE USER traffic WITH ENCRYPTED PASSWORD 'password';' -U postgres
-  - psql -c 'GRANT ALL PRIVILEGES ON DATABASE traffic TO traffic;' -U postgres
-  - psql -c 'GRANT ALL PRIVILEGES ON SCHEMA public TO traffic;' -U postgres traffic
+  - sudo --login postgres psql -c 'CREATE DATABASE traffic;' -U postgres
+  - sudo --login postgres psql -c 'CREATE USER traffic WITH ENCRYPTED PASSWORD 'password';' -U postgres
+  - sudo --login postgres psql -c 'GRANT ALL PRIVILEGES ON DATABASE traffic TO traffic;' -U postgres
+  - sudo --login postgres psql -c 'GRANT ALL PRIVILEGES ON SCHEMA public TO traffic;' -U postgres traffic
 
 script:
   - go test -v -race -coverprofile=cov.out || travis_terminate 1;
