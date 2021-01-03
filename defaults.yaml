@@ -1,0 +1,11 @@
+rabbitmq: amqp://guest:guest@127.0.0.1:5672/
+monitoring_queue: input
+sentry:
+  dsn: ""
+  environment: development
+dsn: postgres://traffic:password@127.0.0.1:5432/traffic?sslmode=disable
+http:
+  listen: ":8080"
+migrations:
+  dsn: postgres://traffic:password@127.0.0.1/traffic?sslmode=disable
+  dir: ./migrations

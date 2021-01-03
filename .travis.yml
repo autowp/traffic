@@ -3,7 +3,7 @@ sudo: required
 language: go
 
 go:
-  - "1.14"
+  - "1.15"
 
 services:
   - rabbitmq
@@ -13,7 +13,6 @@ addons:
   apt:
     packages:
     - postgresql-13
-    - postgresql-client-13
     - rabbitmq-server
   sonarcloud:
     organization: "autowp-github"
@@ -23,26 +22,23 @@ addons:
 install: true
 
 before_script:
-  - go mod verify
-  - go get -u github.com/kisielk/errcheck
-  - go get -u github.com/mattn/goveralls
-  - errcheck ./...
-  - wget -q -O ./waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.1/waitforit-linux_amd64
+  - go mod verify || travis_terminate 1;
+  - go get -u github.com/kisielk/errcheck || travis_terminate 1;
+  - go get -u github.com/mattn/goveralls || travis_terminate 1;
+  - errcheck ./... || travis_terminate 1;
+  - wget -q -O ./waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.1/waitforit-linux_amd64 || travis_terminate 1;
   - chmod +x ./waitforit
-  - source test.env
-  - ./waitforit -address tcp://$TRAFFIC_RABBITMQ_HOST:$TRAFFIC_RABBITMQ_PORT -timeout 30 || travis_terminate 1;
+  - ./waitforit -address tcp://127.0.0.1:5672 -timeout 30 || travis_terminate 1;
 
 script:
   - go test -v -race -coverprofile=cov.out || travis_terminate 1;
   - sonar-scanner -Dsonar.login=$SONARCLOUD_TOKEN || true;
   - goveralls -service=travis-ci || travis_terminate 1;
 
-  - go build -ldflags "-s -w" -o build/package/traffic cmd/traffic/traffic.go || travis_terminate 1;
-  - cp -R migrations build/package/migrations
-  - docker build build/package/ -t $DOCKER_REPO || travis_terminate 1;
+  - docker build . -t autowp/traffic || travis_terminate 1;
 
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
     docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
-    docker push $DOCKER_REPO;
+    docker push autowp/traffic;
     fi

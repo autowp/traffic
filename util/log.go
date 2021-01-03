@@ -9,8 +9,8 @@ import (
 
 // SentryConfig config
 type SentryConfig struct {
-	DSN         string `yaml:"dsn"`
-	Environment string `yaml:"environment"`
+	DSN         string `yaml:"dsn"         mapstructure:"dsn"`
+	Environment string `yaml:"environment" mapstructure:"environment"`
 }
 
 // Logger wraps log infrastructure
