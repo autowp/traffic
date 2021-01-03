@@ -42,10 +42,9 @@ script:
   - sonar-scanner -Dsonar.login=$SONARCLOUD_TOKEN || true;
   - goveralls -service=travis-ci || travis_terminate 1;
 
-  - docker build . -t autowp/traffic || travis_terminate 1;
-
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
     docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+    docker build . -t autowp/traffic || travis_terminate 1;
     docker push autowp/traffic;
     fi
