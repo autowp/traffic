@@ -1,5 +1,7 @@
 sudo: required
 
+dist: focal
+
 language: go
 
 go:
@@ -30,7 +32,7 @@ before_script:
   - ./waitforit -address tcp://127.0.0.1:5432 -timeout 30 || travis_terminate 1;
   - ./waitforit -address tcp://127.0.0.1:5672 -timeout 30 || travis_terminate 1;
   - psql -c 'CREATE DATABASE traffic;' -U postgres
-  - psql -c 'CREATE USER traffic WITH ENCRYPTED PASSWORD 'password';' -U postgres
+  - psql -c "CREATE USER traffic WITH PASSWORD 'password';" -U postgres
   - psql -c 'GRANT ALL PRIVILEGES ON DATABASE traffic TO traffic;' -U postgres
   - psql -c 'GRANT ALL PRIVILEGES ON SCHEMA public TO traffic;' -U postgres traffic
 
