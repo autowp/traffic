@@ -10,6 +10,9 @@ services:
   - postgresql
 
 addons:
+  apt:
+    packages:
+      - rabbitmq-server
   sonarcloud:
     organization: "autowp-github"
     token:
