@@ -2,13 +2,19 @@ sudo: required
 
 language: go
 
-services:
-  - docker
-
 go:
   - "1.14"
 
+services:
+  - rabbitmq
+
 addons:
+  postgresql: "13"
+  apt:
+    packages:
+    - postgresql-13
+    - postgresql-client-13
+    - rabbitmq-server
   sonarcloud:
     organization: "autowp-github"
     token:
@@ -17,12 +23,10 @@ addons:
 install: true
 
 before_script:
-  - sudo service mysql stop
   - go mod verify
   - go get -u github.com/kisielk/errcheck
   - go get -u github.com/mattn/goveralls
   - errcheck ./...
-  - docker-compose up -d
   - wget -q -O ./waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.1/waitforit-linux_amd64
   - chmod +x ./waitforit
   - source test.env
@@ -42,6 +46,3 @@ after_success:
     docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
     docker push $DOCKER_REPO;
     fi
-
-after_failure:
-  - docker logs mysql

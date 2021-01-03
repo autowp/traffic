@@ -1,8 +1,9 @@
 package traffic
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
+	"github.com/jackc/pgx/v4"
 	"net"
 	"strings"
 	"sync"
@@ -23,14 +24,19 @@ type BanItem struct {
 
 // Ban Main Object
 type Ban struct {
-	db           *sql.DB
+	db           *pgx.Conn
 	loc          *time.Location
 	gcStopTicker chan bool
 	logger       *util.Logger
 }
 
 // NewBan constructor
-func NewBan(wg *sync.WaitGroup, db *sql.DB, loc *time.Location, logger *util.Logger) (*Ban, error) {
+func NewBan(wg *sync.WaitGroup, db *pgx.Conn, loc *time.Location, logger *util.Logger) (*Ban, error) {
+
+	if db == nil {
+		return nil, fmt.Errorf("database connection is nil")
+	}
+
 	s := &Ban{
 		db:           db,
 		loc:          loc,
@@ -77,26 +83,16 @@ func (s *Ban) Add(ip net.IP, duration time.Duration, byUserID int, reason string
 	reason = strings.TrimSpace(reason)
 	upTo := time.Now().Add(duration)
 
-	stmt, err := s.db.Prepare(`
+	ct, err := s.db.Exec(context.Background(), `
 		INSERT INTO ip_ban (ip, until, by_user_id, reason)
-		VALUES (INET6_ATON(?), ?, ?, ?)
-		ON DUPLICATE KEY UPDATE until=VALUES(until), by_user_id=VALUES(by_user_id), reason=VALUES(reason)
-	`)
-	if err != nil {
-		return err
-	}
-	defer util.Close(stmt)
-
-	upToStr := upTo.In(s.loc).Format("2006-01-02 15:04:05")
-	r, err := stmt.Exec(ip.String(), upToStr, byUserID, reason)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT(ip) DO UPDATE SET until=EXCLUDED.until, by_user_id=EXCLUDED.by_user_id, reason=EXCLUDED.reason
+	`, ip, upTo, byUserID, reason)
 	if err != nil {
 		return err
 	}
 
-	affected, err := r.RowsAffected()
-	if err != nil {
-		return err
-	}
+	affected := ct.RowsAffected()
 
 	if affected == 1 {
 		s.logger.Warningf("%v was banned. Reason: %s", ip.String(), reason)
@@ -108,32 +104,22 @@ func (s *Ban) Add(ip net.IP, duration time.Duration, byUserID int, reason string
 // Remove IP from list of banned
 func (s *Ban) Remove(ip net.IP) error {
 
-	stmt, err := s.db.Prepare("DELETE FROM ip_ban WHERE ip = INET6_ATON(?)")
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Exec(ip.String())
-	if err != nil {
-		return err
-	}
-	defer util.Close(stmt)
+	_, err := s.db.Exec(context.Background(), "DELETE FROM ip_ban WHERE ip = $1", ip)
 
-	return nil
+	return err
 }
 
 // Exists ban list already contains IP
 func (s *Ban) Exists(ip net.IP) (bool, error) {
 
-	nowStr := time.Now().In(s.loc).Format("2006-01-02 15:04:05")
-
 	var exists bool
-	err := s.db.QueryRow(`
-		SELECT 1
+	err := s.db.QueryRow(context.Background(), `
+		SELECT true
 		FROM ip_ban
-		WHERE ip = INET6_ATON(?) AND until >= ?
-	`, ip.String(), nowStr).Scan(&exists)
+		WHERE ip = $1 AND until >= NOW()
+	`, ip).Scan(&exists)
 	if err != nil {
-		if err != sql.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			return false, err
 		}
 
@@ -146,16 +132,14 @@ func (s *Ban) Exists(ip net.IP) (bool, error) {
 // Get ban info
 func (s *Ban) Get(ip net.IP) (*BanItem, error) {
 
-	nowStr := time.Now().In(s.loc).Format("2006-01-02 15:04:05")
-
 	item := BanItem{}
-	err := s.db.QueryRow(`
+	err := s.db.QueryRow(context.Background(), `
 		SELECT ip, until, reason, by_user_id
 		FROM ip_ban
-		WHERE ip = INET6_ATON(?) AND until >= ?
-	`, ip.String(), nowStr).Scan(&item.IP, &item.Until, &item.Reason, &item.ByUserID)
+		WHERE ip = $1 AND until >= NOW()
+	`, ip).Scan(&item.IP, &item.Until, &item.Reason, &item.ByUserID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
 
@@ -165,39 +149,21 @@ func (s *Ban) Get(ip net.IP) (*BanItem, error) {
 	return &item, nil
 }
 
-// GC Grablage Collect
+// GC Garbage Collect
 func (s *Ban) GC() (int64, error) {
-	stmt, err := s.db.Prepare("DELETE FROM ip_ban WHERE until < ?")
+	ct, err := s.db.Exec(context.Background(), "DELETE FROM ip_ban WHERE until < NOW()")
 	if err != nil {
 		return 0, err
 	}
 
-	nowStr := time.Now().In(s.loc).Format("2006-01-02 15:04:05")
-	res, err := stmt.Exec(nowStr)
-	if err != nil {
-		return 0, err
-	}
-	defer util.Close(stmt)
-
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
+	affected := ct.RowsAffected()
 
 	return affected, nil
 }
 
 // Clear removes all collected data
 func (s *Ban) Clear() error {
-	stmt, err := s.db.Prepare("DELETE FROM ip_ban")
-	if err != nil {
-		return err
-	}
-	defer util.Close(stmt)
-	_, err = stmt.Exec()
-	if err != nil {
-		return err
-	}
+	_, err := s.db.Exec(context.Background(), "DELETE FROM ip_ban")
 
-	return nil
+	return err
 }

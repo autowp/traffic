@@ -22,7 +22,6 @@ type MigrationsConfig struct {
 type Config struct {
 	RabbitMQ        string            `yaml:"rabbitmq"`
 	MonitoringQueue string            `yaml:"monitoring_queue"`
-	HotlinkQueue    string            `yaml:"hotlink_queue"`
 	Sentry          util.SentryConfig `yaml:"sentry"`
 	DSN             string            `yaml:"dsn"`
 	Migrations      MigrationsConfig  `yaml:"migrations"`
@@ -31,16 +30,14 @@ type Config struct {
 
 // LoadConfig LoadConfig
 func LoadConfig() Config {
-
 	config := Config{
 		RabbitMQ:        "amqp://guest:guest@" + os.Getenv("TRAFFIC_RABBITMQ_HOST") + ":" + os.Getenv("TRAFFIC_RABBITMQ_PORT") + "/",
 		MonitoringQueue: os.Getenv("TRAFFIC_MONITORING_QUEUE"),
-		HotlinkQueue:    os.Getenv("TRAFFIC_HOTLINK_QUEUE"),
 		Sentry: util.SentryConfig{
 			DSN:         os.Getenv("TRAFFIC_SENTRY_DSN"),
 			Environment: os.Getenv("TRAFFIC_SENTRY_ENVIRONMENT"),
 		},
-		DSN: os.Getenv("TRAFFIC_MYSQL_DSN"),
+		DSN: os.Getenv("TRAFFIC_POSTGRES_DSN"),
 		HTTP: HTTPConfig{
 			Listen: os.Getenv("TRAFFIC_HTTP_LISTEN"),
 		},
@@ -63,7 +60,4 @@ func ValidateConfig(config Config) {
 		log.Fatalln("MonitoringQueue not provided")
 	}
 
-	if config.HotlinkQueue == "" {
-		log.Fatalln("HotlinkQueue not provided")
-	}
 }

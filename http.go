@@ -44,8 +44,6 @@ func (s *Service) setupRouter() {
 
 	r.Use(sentrygin.New(sentrygin.Options{}))
 
-	s.Hotlink.SetupRouter(r)
-
 	r.GET("/whitelist", func(c *gin.Context) {
 		list, err := s.Whitelist.List()
 		if err != nil {

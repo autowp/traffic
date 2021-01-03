@@ -1,19 +1,18 @@
 package traffic
 
 import (
-	"database/sql"
+	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/jackc/pgx/v4"
 	"net"
 	"strings"
 	"time"
-
-	"github.com/autowp/traffic/util"
 )
 
 // Whitelist Main Object
 type Whitelist struct {
-	db  *sql.DB
+	db  *pgx.Conn
 	loc *time.Location
 }
 
@@ -24,7 +23,7 @@ type WhitelistItem struct {
 }
 
 // NewWhitelist constructor
-func NewWhitelist(db *sql.DB, loc *time.Location) (*Whitelist, error) {
+func NewWhitelist(db *pgx.Conn, loc *time.Location) (*Whitelist, error) {
 	return &Whitelist{
 		db:  db,
 		loc: loc,
@@ -74,34 +73,25 @@ func (s *Whitelist) MatchAuto(ip net.IP) (bool, string) {
 
 // Add IP to whitelist
 func (s *Whitelist) Add(ip net.IP, desc string) error {
-	stmt, err := s.db.Prepare(`
+	_, err := s.db.Exec(context.Background(), `
 		INSERT INTO ip_whitelist (ip, description)
-		VALUES (INET6_ATON(?), ?)
-		ON DUPLICATE KEY UPDATE description=VALUES(description)
-	`)
-	if err != nil {
-		return err
-	}
+		VALUES ($1, $2)
+		ON CONFLICT (ip) DO UPDATE SET description=EXCLUDED.description
+	`, ip, desc)
 
-	_, err = stmt.Exec(ip.String(), desc)
-	if err != nil {
-		return err
-	}
-	defer util.Close(stmt)
-
-	return nil
+	return err
 }
 
 // Get whitelist item
 func (s *Whitelist) Get(ip net.IP) (*WhitelistItem, error) {
 	var item WhitelistItem
-	err := s.db.QueryRow(`
+	err := s.db.QueryRow(context.Background(), `
 		SELECT ip, description
 		FROM ip_whitelist
-		WHERE ip = INET6_ATON(?)
-	`, ip.String()).Scan(&item.IP, item.Description)
+		WHERE ip = $1
+	`, ip).Scan(&item.IP, item.Description)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
 
@@ -114,14 +104,14 @@ func (s *Whitelist) Get(ip net.IP) (*WhitelistItem, error) {
 // List whitelist items
 func (s *Whitelist) List() ([]WhitelistItem, error) {
 	result := make([]WhitelistItem, 0)
-	rows, err := s.db.Query(`
+	rows, err := s.db.Query(context.Background(), `
 		SELECT ip, description
 		FROM ip_whitelist
 	`)
 	if err != nil {
 		return nil, err
 	}
-	defer util.Close(rows)
+	defer rows.Close()
 
 	for rows.Next() {
 		var item WhitelistItem
@@ -138,13 +128,13 @@ func (s *Whitelist) List() ([]WhitelistItem, error) {
 // Exists whitelist already contains IP
 func (s *Whitelist) Exists(ip net.IP) (bool, error) {
 	var exists bool
-	err := s.db.QueryRow(`
+	err := s.db.QueryRow(context.Background(), `
 		SELECT true
 		FROM ip_whitelist
-		WHERE ip = INET6_ATON(?)
-	`, ip.String()).Scan(&exists)
+		WHERE ip = $1
+	`, ip).Scan(&exists)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return false, nil
 		}
 
@@ -156,16 +146,6 @@ func (s *Whitelist) Exists(ip net.IP) (bool, error) {
 
 // Remove IP from whitelist
 func (s *Whitelist) Remove(ip net.IP) error {
-
-	stmt, err := s.db.Prepare("DELETE FROM ip_whitelist WHERE ip = INET6_ATON(?)")
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Exec(ip.String())
-	if err != nil {
-		return err
-	}
-	defer util.Close(stmt)
-
-	return nil
+	_, err := s.db.Exec(context.Background(), "DELETE FROM ip_whitelist WHERE ip = $1", ip)
+	return err
 }

@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,14 +18,14 @@ func TestService(t *testing.T) {
 	config := LoadConfig()
 
 	s, err := NewService(config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer s.Close()
 
 	err = s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = s.Monitoring.Add(net.IPv6loopback, time.Now())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestMonitoringGC(t *testing.T) {
@@ -34,22 +33,22 @@ func TestMonitoringGC(t *testing.T) {
 	config := LoadConfig()
 
 	s, err := NewService(config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer s.Close()
 
 	err = s.Monitoring.Clear()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	affected, err := s.Monitoring.GC()
-	assert.NoError(t, err)
-	assert.Zero(t, affected)
+	require.NoError(t, err)
+	require.Zero(t, affected)
 
 	items, err := s.Monitoring.ListOfTop(10)
-	assert.NoError(t, err)
-	assert.Len(t, items, 1)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
 }
 
 func TestAutoWhitelist(t *testing.T) {
@@ -57,39 +56,39 @@ func TestAutoWhitelist(t *testing.T) {
 	config := LoadConfig()
 
 	s, err := NewService(config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer s.Close()
 
 	ip := net.IPv4(66, 249, 73, 139) // google
 
 	err = s.Ban.Add(ip, time.Hour, 9, "test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	exists, err := s.Ban.Exists(ip)
-	assert.NoError(t, err)
-	assert.True(t, exists)
+	require.NoError(t, err)
+	require.True(t, exists)
 
 	err = s.Monitoring.Add(ip, time.Now())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	exists, err = s.Monitoring.ExistsIP(ip)
-	assert.NoError(t, err)
-	assert.True(t, exists)
+	require.NoError(t, err)
+	require.True(t, exists)
 
 	err = s.autoWhitelist()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	exists, err = s.Ban.Exists(ip)
-	assert.NoError(t, err)
-	assert.False(t, exists)
+	require.NoError(t, err)
+	require.False(t, exists)
 
 	exists, err = s.Monitoring.ExistsIP(ip)
-	assert.NoError(t, err)
-	assert.False(t, exists)
+	require.NoError(t, err)
+	require.False(t, exists)
 
 	exists, err = s.Whitelist.Exists(ip)
-	assert.NoError(t, err)
-	assert.True(t, exists)
+	require.NoError(t, err)
+	require.True(t, exists)
 }
 
 func TestAutoBanByProfile(t *testing.T) {
@@ -97,7 +96,7 @@ func TestAutoBanByProfile(t *testing.T) {
 	config := LoadConfig()
 
 	s, err := NewService(config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer s.Close()
 
 	profile := AutobanProfile{
@@ -111,32 +110,32 @@ func TestAutoBanByProfile(t *testing.T) {
 	ip2 := net.IPv4(127, 0, 0, 2)
 
 	err = s.Monitoring.ClearIP(ip1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = s.Monitoring.ClearIP(ip2)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = s.Ban.Remove(ip1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = s.Ban.Remove(ip2)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = s.Monitoring.Add(ip1, time.Now())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	for i := 0; i < 4; i++ {
 		err = s.Monitoring.Add(ip2, time.Now())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	err = s.autoBanByProfile(profile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	exists, err := s.Ban.Exists(ip1)
-	assert.NoError(t, err)
-	assert.False(t, exists)
+	require.NoError(t, err)
+	require.False(t, exists)
 
 	exists, err = s.Ban.Exists(ip2)
-	assert.NoError(t, err)
-	assert.True(t, exists)
+	require.NoError(t, err)
+	require.True(t, exists)
 }
 
 func TestWhitelistedNotBanned(t *testing.T) {
@@ -179,11 +178,11 @@ func TestHttpBanPost(t *testing.T) {
 	config := LoadConfig()
 
 	s, err := NewService(config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer s.Close()
 
 	err = s.Ban.Remove(net.IPv4(127, 0, 0, 1))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	router := s.GetRouter()
 
@@ -194,59 +193,60 @@ func TestHttpBanPost(t *testing.T) {
 		"by_user_id": 4,
 		"reason":     "Test",
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	req, err := http.NewRequest("POST", "/ban", bytes.NewBuffer(b))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
+	require.Equal(t, http.StatusCreated, w.Code)
 
 	exists, err := s.Ban.Exists(net.IPv4(127, 0, 0, 1))
-	assert.NoError(t, err)
-	assert.True(t, exists)
+	require.NoError(t, err)
+	require.True(t, exists)
 
 	w = httptest.NewRecorder()
 	req, err = http.NewRequest("DELETE", "/ban/127.0.0.1", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusNoContent, w.Code)
+	require.Equal(t, http.StatusNoContent, w.Code)
 
 	exists, err = s.Ban.Exists(net.IPv4(127, 0, 0, 1))
-	assert.NoError(t, err)
-	assert.False(t, exists)
+	require.NoError(t, err)
+	require.False(t, exists)
 }
 
 func TestTop(t *testing.T) {
 	config := LoadConfig()
 
 	s, err := NewService(config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer s.Close()
 
 	router := s.GetRouter()
 
 	err = s.Ban.Clear()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = s.Monitoring.Clear()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
+	now := time.Now()
 	for i := 0; i < 10; i++ {
-		err = s.Monitoring.Add(net.IPv6loopback, time.Now())
-		assert.NoError(t, err)
+		err = s.Monitoring.Add(net.IPv6loopback, now)
+		require.NoError(t, err)
 	}
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", "/top", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, http.StatusOK, w.Code)
 
 	body, err := ioutil.ReadAll(w.Body)
-	assert.Equal(t, `[{"ip":"::1","count":10,"ban":null,"in_whitelist":false},{"ip":"192.168.0.1","count":1,"ban":null,"in_whitelist":false}]`, string(body))
+	require.Equal(t, `[{"ip":"::1","count":10,"ban":null,"in_whitelist":false},{"ip":"192.168.0.1","count":1,"ban":null,"in_whitelist":false}]`, string(body))
 }

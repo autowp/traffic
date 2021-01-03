@@ -1,7 +1,7 @@
 package traffic
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -11,18 +11,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/autowp/traffic/hotlink"
 	"github.com/autowp/traffic/util"
 	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql" // enable mysql driver
+	pgx "github.com/jackc/pgx/v4"
 	"github.com/streadway/amqp"
 
 	"github.com/golang-migrate/migrate"
-	_ "github.com/golang-migrate/migrate/database/mysql" // enable mysql migrations
-	_ "github.com/golang-migrate/migrate/source/file"    // enable file migration source
+	_ "github.com/golang-migrate/migrate/database/postgres" // enable postgres migrations
+	_ "github.com/golang-migrate/migrate/source/file"       // enable file migration source
 )
 
-const gcPeriod = time.Hour * 1
 const whitelistPeriod = time.Hour * 1
 const banPeriod = time.Minute
 const banByUserID = 9
@@ -31,11 +29,10 @@ const banByUserID = 9
 type Service struct {
 	config              Config
 	logger              *util.Logger
-	db                  *sql.DB
+	db                  *pgx.Conn
 	Whitelist           *Whitelist
 	Ban                 *Ban
 	Monitoring          *Monitoring
-	Hotlink             *hotlink.Hotlink
 	Loc                 *time.Location
 	whitelistStopTicker chan bool
 	banStopTicker       chan bool
@@ -55,25 +52,25 @@ type AutobanProfile struct {
 
 // AutobanProfiles AutobanProfiles
 var AutobanProfiles = []AutobanProfile{
-	AutobanProfile{
+	{
 		Limit:  10000,
 		Reason: "daily limit",
 		Group:  []string{},
 		Time:   time.Hour * 10 * 24,
 	},
-	AutobanProfile{
+	{
 		Limit:  3600,
 		Reason: "hourly limit",
 		Group:  []string{"hour"},
 		Time:   time.Hour * 5 * 24,
 	},
-	AutobanProfile{
+	{
 		Limit:  1200,
 		Reason: "ten min limit",
 		Group:  []string{"hour", "tenminute"},
 		Time:   time.Hour * 24,
 	},
-	AutobanProfile{
+	{
 		Limit:  700,
 		Reason: "min limit",
 		Group:  []string{"hour", "tenminute", "minute"},
@@ -93,17 +90,17 @@ func NewService(config Config) (*Service, error) {
 	start := time.Now()
 	timeout := 60 * time.Second
 
-	fmt.Println("Waiting for mysql")
+	fmt.Println("Waiting for postgres")
 
-	var db *sql.DB
+	var db *pgx.Conn
 	for {
-		db, err = sql.Open("mysql", config.DSN)
+		db, err = pgx.Connect(context.Background(), config.DSN)
 		if err != nil {
 			fmt.Println(err)
 			return nil, err
 		}
 
-		err = db.Ping()
+		err = db.Ping(context.Background())
 		if err == nil {
 			fmt.Println("Started.")
 			break
@@ -167,12 +164,6 @@ func NewService(config Config) (*Service, error) {
 		return nil, err
 	}
 
-	hotlink, err := hotlink.New(wg, db, loc, rabbitMQ, config.HotlinkQueue, logger)
-	if err != nil {
-		logger.Fatal(err)
-		return nil, err
-	}
-
 	s := &Service{
 		config:     config,
 		logger:     logger,
@@ -181,7 +172,6 @@ func NewService(config Config) (*Service, error) {
 		Ban:        ban,
 		Monitoring: monitoring,
 		Loc:        loc,
-		Hotlink:    hotlink,
 		rabbitMQ:   rabbitMQ,
 		waitGroup:  wg,
 	}
@@ -284,20 +274,19 @@ func (s *Service) Close() {
 	close(s.whitelistStopTicker)
 
 	if s.httpServer != nil {
-		err := s.httpServer.Shutdown(nil)
+		err := s.httpServer.Shutdown(context.Background())
 		if err != nil {
 			panic(err) // failure/timeout shutting down the server gracefully
 		}
 	}
 
 	s.Monitoring.Close()
-	s.Hotlink.Close()
 	s.Ban.Close()
 
 	s.waitGroup.Wait()
 
 	if s.db != nil {
-		err := s.db.Close()
+		err := s.db.Close(context.Background())
 		if err != nil {
 			s.logger.Warning(err)
 		}
