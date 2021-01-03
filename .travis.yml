@@ -21,7 +21,7 @@ addons:
 
 env:
   global:
-    - PGUSER=traffic
+    - PGUSER=postgres
     - PGPORT=5433
 
 install: true
