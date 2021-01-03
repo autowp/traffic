@@ -16,5 +16,5 @@ services:
     - POSTGRES_USER=traffic
     - POSTGRES_PASSWORD=password
     ports:
-    - "5433:5432"
+    - "5432:5432"
 

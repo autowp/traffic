@@ -1,3 +1,0 @@
-dsn: postgres://traffic:password@127.0.0.1:5433/traffic?sslmode=disable
-migrations:
-  dsn: postgres://traffic:password@127.0.0.1:5433/traffic?sslmode=disable
