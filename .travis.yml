@@ -19,6 +19,11 @@ addons:
     token:
       secure: $SONARCLOUD_TOKEN
 
+env:
+  global:
+    - PGUSER=traffic
+    - PGPORT=5432
+
 install: true
 
 before_script:
@@ -28,6 +33,7 @@ before_script:
   - errcheck ./... || travis_terminate 1;
   - wget -q -O ./waitforit https://github.com/maxcnunes/waitforit/releases/download/v2.4.1/waitforit-linux_amd64 || travis_terminate 1;
   - chmod +x ./waitforit
+  - ./waitforit -address tcp://127.0.0.1:5432 -timeout 30 || travis_terminate 1;
   - ./waitforit -address tcp://127.0.0.1:5672 -timeout 30 || travis_terminate 1;
 
 script:
