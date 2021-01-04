@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"net"
 	"strings"
 	"time"
@@ -12,7 +13,7 @@ import (
 
 // Whitelist Main Object
 type Whitelist struct {
-	db  *pgx.Conn
+	db  *pgxpool.Pool
 	loc *time.Location
 }
 
@@ -23,7 +24,7 @@ type WhitelistItem struct {
 }
 
 // NewWhitelist constructor
-func NewWhitelist(db *pgx.Conn, loc *time.Location) (*Whitelist, error) {
+func NewWhitelist(db *pgxpool.Pool, loc *time.Location) (*Whitelist, error) {
 	return &Whitelist{
 		db:  db,
 		loc: loc,

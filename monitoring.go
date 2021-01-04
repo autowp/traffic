@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"net"
 	"strings"
 	"sync"
@@ -18,7 +19,7 @@ const monitoringGCPeriod = time.Hour * 1
 
 // Monitoring Main Object
 type Monitoring struct {
-	db           *pgx.Conn
+	db           *pgxpool.Pool
 	loc          *time.Location
 	queue        string
 	conn         *amqp.Connection
@@ -40,7 +41,7 @@ type ListOfTopItem struct {
 }
 
 // NewMonitoring constructor
-func NewMonitoring(wg *sync.WaitGroup, db *pgx.Conn, loc *time.Location, rabbitmMQ *amqp.Connection, queue string, logger *util.Logger) (*Monitoring, error) {
+func NewMonitoring(wg *sync.WaitGroup, db *pgxpool.Pool, loc *time.Location, rabbitmMQ *amqp.Connection, queue string, logger *util.Logger) (*Monitoring, error) {
 	s := &Monitoring{
 		db:           db,
 		loc:          loc,

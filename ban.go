@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"net"
 	"strings"
 	"sync"
@@ -24,14 +25,14 @@ type BanItem struct {
 
 // Ban Main Object
 type Ban struct {
-	db           *pgx.Conn
+	db           *pgxpool.Pool
 	loc          *time.Location
 	gcStopTicker chan bool
 	logger       *util.Logger
 }
 
 // NewBan constructor
-func NewBan(wg *sync.WaitGroup, db *pgx.Conn, loc *time.Location, logger *util.Logger) (*Ban, error) {
+func NewBan(wg *sync.WaitGroup, db *pgxpool.Pool, loc *time.Location, logger *util.Logger) (*Ban, error) {
 
 	if db == nil {
 		return nil, fmt.Errorf("database connection is nil")

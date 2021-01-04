@@ -3,6 +3,7 @@ package traffic
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 	"net"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/autowp/traffic/util"
 	"github.com/gin-gonic/gin"
-	pgx "github.com/jackc/pgx/v4"
 	"github.com/streadway/amqp"
 
 	"github.com/golang-migrate/migrate"
@@ -29,7 +29,7 @@ const banByUserID = 9
 type Service struct {
 	config              Config
 	logger              *util.Logger
-	db                  *pgx.Conn
+	db                  *pgxpool.Pool
 	Whitelist           *Whitelist
 	Ban                 *Ban
 	Monitoring          *Monitoring
@@ -92,15 +92,22 @@ func NewService(config Config) (*Service, error) {
 
 	fmt.Println("Waiting for postgres")
 
-	var db *pgx.Conn
+	var pool *pgxpool.Pool
 	for {
-		db, err = pgx.Connect(context.Background(), config.DSN)
+		pool, err = pgxpool.Connect(context.Background(), config.DSN)
 		if err != nil {
 			fmt.Println(err)
 			return nil, err
 		}
 
-		err = db.Ping(context.Background())
+		db, err := pool.Acquire(context.Background())
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
+
+		err = db.Conn().Ping(context.Background())
+		db.Release()
 		if err == nil {
 			fmt.Println("Started.")
 			break
@@ -146,19 +153,19 @@ func NewService(config Config) (*Service, error) {
 
 	wg := &sync.WaitGroup{}
 
-	whitelist, err := NewWhitelist(db, loc)
+	whitelist, err := NewWhitelist(pool, loc)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
 	}
 
-	ban, err := NewBan(wg, db, loc, logger)
+	ban, err := NewBan(wg, pool, loc, logger)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
 	}
 
-	monitoring, err := NewMonitoring(wg, db, loc, rabbitMQ, config.MonitoringQueue, logger)
+	monitoring, err := NewMonitoring(wg, pool, loc, rabbitMQ, config.MonitoringQueue, logger)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
@@ -167,7 +174,7 @@ func NewService(config Config) (*Service, error) {
 	s := &Service{
 		config:     config,
 		logger:     logger,
-		db:         db,
+		db:         pool,
 		Whitelist:  whitelist,
 		Ban:        ban,
 		Monitoring: monitoring,
@@ -286,10 +293,7 @@ func (s *Service) Close() {
 	s.waitGroup.Wait()
 
 	if s.db != nil {
-		err := s.db.Close(context.Background())
-		if err != nil {
-			s.logger.Warning(err)
-		}
+		s.db.Close()
 	}
 
 	if s.rabbitMQ != nil {
