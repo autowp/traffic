@@ -26,13 +26,12 @@ type BanItem struct {
 // Ban Main Object
 type Ban struct {
 	db           *pgxpool.Pool
-	loc          *time.Location
 	gcStopTicker chan bool
 	logger       *util.Logger
 }
 
 // NewBan constructor
-func NewBan(wg *sync.WaitGroup, db *pgxpool.Pool, loc *time.Location, logger *util.Logger) (*Ban, error) {
+func NewBan(wg *sync.WaitGroup, db *pgxpool.Pool, logger *util.Logger) (*Ban, error) {
 
 	if db == nil {
 		return nil, fmt.Errorf("database connection is nil")
@@ -40,7 +39,6 @@ func NewBan(wg *sync.WaitGroup, db *pgxpool.Pool, loc *time.Location, logger *ut
 
 	s := &Ban{
 		db:           db,
-		loc:          loc,
 		gcStopTicker: make(chan bool),
 		logger:       logger,
 	}
@@ -74,9 +72,11 @@ func NewBan(wg *sync.WaitGroup, db *pgxpool.Pool, loc *time.Location, logger *ut
 }
 
 // Close all connections
-func (s *Ban) Close() {
+func (s *Ban) Close() error {
 	s.gcStopTicker <- true
 	close(s.gcStopTicker)
+
+	return nil
 }
 
 // Add IP to list of banned

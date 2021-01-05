@@ -8,13 +8,11 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"net"
 	"strings"
-	"time"
 )
 
 // Whitelist Main Object
 type Whitelist struct {
-	db  *pgxpool.Pool
-	loc *time.Location
+	db *pgxpool.Pool
 }
 
 // WhitelistItem WhitelistItem
@@ -24,10 +22,9 @@ type WhitelistItem struct {
 }
 
 // NewWhitelist constructor
-func NewWhitelist(db *pgxpool.Pool, loc *time.Location) (*Whitelist, error) {
+func NewWhitelist(db *pgxpool.Pool) (*Whitelist, error) {
 	return &Whitelist{
-		db:  db,
-		loc: loc,
+		db: db,
 	}, nil
 }
 

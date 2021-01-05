@@ -1,36 +1,50 @@
 package traffic
 
 import (
+	"context"
+	"github.com/autowp/traffic/util"
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/stretchr/testify/require"
 	"net"
+	"sync"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
+
+func createBanService(t *testing.T) *Ban {
+	config := LoadConfig()
+
+	wg := &sync.WaitGroup{}
+
+	pool, err := pgxpool.Connect(context.Background(), config.DSN)
+	require.NoError(t, err)
+
+	logger := util.NewLogger(config.Sentry)
+
+	s, err := NewBan(wg, pool, logger)
+	require.NoError(t, err)
+
+	return s
+}
 
 func TestAddRemove(t *testing.T) {
 
-	config := LoadConfig()
-
-	s, err := NewService(config)
-
-	assert.NoError(t, err)
+	s := createBanService(t)
+	defer util.Close(s)
 
 	ip := net.IPv4(66, 249, 73, 139)
 
-	err = s.Ban.Add(ip, time.Hour, 1, "Test")
-	assert.NoError(t, err)
+	err := s.Add(ip, time.Hour, 1, "Test")
+	require.NoError(t, err)
 
-	exists, err := s.Ban.Exists(ip)
-	assert.NoError(t, err)
-	assert.True(t, exists)
+	exists, err := s.Exists(ip)
+	require.NoError(t, err)
+	require.True(t, exists)
 
-	err = s.Ban.Remove(ip)
-	assert.NoError(t, err)
+	err = s.Remove(ip)
+	require.NoError(t, err)
 
-	exists, err = s.Ban.Exists(ip)
-	assert.NoError(t, err)
-	assert.False(t, exists)
-
-	s.Close()
+	exists, err = s.Exists(ip)
+	require.NoError(t, err)
+	require.False(t, exists)
 }
