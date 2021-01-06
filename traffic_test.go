@@ -7,12 +7,10 @@ import (
 	"github.com/autowp/traffic/util"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/streadway/amqp"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 
@@ -22,58 +20,20 @@ import (
 func createTrafficService(t *testing.T) *Traffic {
 	config := LoadConfig()
 
-	wg := &sync.WaitGroup{}
-
 	pool, err := pgxpool.Connect(context.Background(), config.DSN)
-	require.NoError(t, err)
-
-	rabbitMQ, err := amqp.Dial(config.RabbitMQ)
 	require.NoError(t, err)
 
 	logger := util.NewLogger(config.Sentry)
 
-	s, err := NewTraffic(wg, pool, rabbitMQ, logger, config.MonitoringQueue)
+	s, err := NewTraffic(pool, logger)
 	require.NoError(t, err)
 
 	return s
 }
 
-func TestMonitoringAdd(t *testing.T) {
-
-	s := createTrafficService(t)
-	defer util.Close(s)
-
-	err := s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
-	require.NoError(t, err)
-
-	err = s.Monitoring.Add(net.IPv6loopback, time.Now())
-	require.NoError(t, err)
-}
-
-func TestMonitoringGC(t *testing.T) {
-
-	s := createTrafficService(t)
-	defer util.Close(s)
-
-	err := s.Monitoring.Clear()
-	require.NoError(t, err)
-
-	err = s.Monitoring.Add(net.IPv4(192, 168, 0, 1), time.Now())
-	require.NoError(t, err)
-
-	affected, err := s.Monitoring.GC()
-	require.NoError(t, err)
-	require.Zero(t, affected)
-
-	items, err := s.Monitoring.ListOfTop(10)
-	require.NoError(t, err)
-	require.Len(t, items, 1)
-}
-
 func TestAutoWhitelist(t *testing.T) {
 
 	s := createTrafficService(t)
-	defer util.Close(s)
 
 	ip := net.IPv4(66, 249, 73, 139) // google
 
@@ -110,7 +70,6 @@ func TestAutoWhitelist(t *testing.T) {
 func TestAutoBanByProfile(t *testing.T) {
 
 	s := createTrafficService(t)
-	defer util.Close(s)
 
 	profile := AutobanProfile{
 		Limit:  3,
@@ -154,7 +113,6 @@ func TestAutoBanByProfile(t *testing.T) {
 func TestWhitelistedNotBanned(t *testing.T) {
 
 	s := createTrafficService(t)
-	defer util.Close(s)
 
 	profile := AutobanProfile{
 		Limit:  3,
@@ -186,7 +144,6 @@ func TestWhitelistedNotBanned(t *testing.T) {
 
 func TestHttpBanPost(t *testing.T) {
 	s := createTrafficService(t)
-	defer util.Close(s)
 
 	err := s.Ban.Remove(net.IPv4(127, 0, 0, 1))
 	require.NoError(t, err)
@@ -226,7 +183,6 @@ func TestHttpBanPost(t *testing.T) {
 
 func TestTop(t *testing.T) {
 	s := createTrafficService(t)
-	defer util.Close(s)
 
 	r := gin.New()
 	s.SetupRouter(r)

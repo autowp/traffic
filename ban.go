@@ -7,13 +7,10 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"net"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/autowp/traffic/util"
 )
-
-const banGCPeriod = time.Hour * 10
 
 // BanItem BanItem
 type BanItem struct {
@@ -25,58 +22,23 @@ type BanItem struct {
 
 // Ban Main Object
 type Ban struct {
-	db           *pgxpool.Pool
-	gcStopTicker chan bool
-	logger       *util.Logger
+	db     *pgxpool.Pool
+	logger *util.Logger
 }
 
 // NewBan constructor
-func NewBan(wg *sync.WaitGroup, db *pgxpool.Pool, logger *util.Logger) (*Ban, error) {
+func NewBan(db *pgxpool.Pool, logger *util.Logger) (*Ban, error) {
 
 	if db == nil {
 		return nil, fmt.Errorf("database connection is nil")
 	}
 
 	s := &Ban{
-		db:           db,
-		gcStopTicker: make(chan bool),
-		logger:       logger,
+		db:     db,
+		logger: logger,
 	}
 
-	wg.Add(1)
-	gcTicker := time.NewTicker(banGCPeriod)
-	go func() {
-		defer wg.Done()
-
-		fmt.Println("Ban GC scheduler started")
-	loop:
-		for {
-			select {
-			case <-gcTicker.C:
-				deleted, err := s.GC()
-				if err != nil {
-					s.logger.Fatal(err)
-					return
-				}
-				fmt.Printf("`%v` items of ban deleted\n", deleted)
-			case <-s.gcStopTicker:
-				gcTicker.Stop()
-				break loop
-			}
-		}
-
-		fmt.Println("Ban GC scheduler stopped")
-	}()
-
 	return s, nil
-}
-
-// Close all connections
-func (s *Ban) Close() error {
-	s.gcStopTicker <- true
-	close(s.gcStopTicker)
-
-	return nil
 }
 
 // Add IP to list of banned

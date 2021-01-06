@@ -8,23 +8,16 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"net"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/autowp/traffic/util"
 	"github.com/streadway/amqp"
 )
 
-const monitoringGCPeriod = time.Hour * 1
-
 // Monitoring Main Object
 type Monitoring struct {
-	db           *pgxpool.Pool
-	queue        string
-	conn         *amqp.Connection
-	quit         chan bool
-	logger       *util.Logger
-	gcStopTicker chan bool
+	db     *pgxpool.Pool
+	logger *util.Logger
 }
 
 // MonitoringInputMessage InputMessage
@@ -40,90 +33,30 @@ type ListOfTopItem struct {
 }
 
 // NewMonitoring constructor
-func NewMonitoring(wg *sync.WaitGroup, db *pgxpool.Pool, rabbitMQ *amqp.Connection, queue string, logger *util.Logger) (*Monitoring, error) {
+func NewMonitoring(db *pgxpool.Pool, logger *util.Logger) (*Monitoring, error) {
 	s := &Monitoring{
-		db:           db,
-		conn:         rabbitMQ,
-		queue:        queue,
-		quit:         make(chan bool),
-		logger:       logger,
-		gcStopTicker: make(chan bool),
+		db:     db,
+		logger: logger,
 	}
-
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		fmt.Println("Monitoring GC scheduler started")
-		err := s.scheduleGC()
-		if err != nil {
-			s.logger.Warning(err)
-			return
-		}
-		fmt.Println("Monitoring GC scheduler stopped")
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		fmt.Println("Monitoring listener started")
-		err := s.listen()
-		if err != nil {
-			s.logger.Fatal(err)
-		}
-		fmt.Println("Monitoring listener stopped")
-	}()
 
 	return s, nil
 }
 
-// Close all connections
-func (s *Monitoring) Close() error {
-	s.gcStopTicker <- true
-	close(s.gcStopTicker)
-	s.quit <- true
-	close(s.quit)
-
-	return nil
-}
-
-func (s *Monitoring) scheduleGC() error {
-	gcTicker := time.NewTicker(monitoringGCPeriod)
-
-	for {
-		select {
-		case <-gcTicker.C:
-			deleted, err := s.GC()
-			if err != nil {
-				return err
-			}
-			fmt.Printf("`%v` items of Monitoring deleted\n", deleted)
-		case <-s.gcStopTicker:
-			gcTicker.Stop()
-			return nil
-		}
-	}
-}
-
 // Listen for incoming messages
-func (s *Monitoring) listen() error {
-	if s.conn == nil {
-		return fmt.Errorf("RabbitMQ connection not initialized")
-	}
-
-	ch, err := s.conn.Channel()
+func (s *Monitoring) Listen(conn *amqp.Connection, queue string, quitChan chan bool) error {
+	ch, err := conn.Channel()
 	if err != nil {
 		return err
 	}
 	defer util.Close(ch)
 
 	inQ, err := ch.QueueDeclare(
-		s.queue, // name
-		false,   // durable
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
-		nil,     // arguments
+		queue, // name
+		false, // durable
+		false, // delete when unused
+		false, // exclusive
+		false, // no-wait
+		nil,   // arguments
 	)
 	if err != nil {
 		return err
@@ -163,7 +96,7 @@ func (s *Monitoring) listen() error {
 				s.logger.Warning(err)
 			}
 
-		case <-s.quit:
+		case <-quitChan:
 			quit = true
 		}
 	}

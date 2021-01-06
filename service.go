@@ -21,9 +21,6 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"       // enable file migration source
 )
 
-const whitelistPeriod = time.Hour * 1
-const banPeriod = time.Minute
-
 // Service Main Object
 type Service struct {
 	config     Config
@@ -34,48 +31,62 @@ type Service struct {
 	router     *gin.Engine
 	httpServer *http.Server
 	Traffic    *Traffic
+	pool       *pgxpool.Pool
 }
 
 // NewService constructor
 func NewService(config Config) (*Service, error) {
-
-	var err error
-
-	logger := util.NewLogger(config.Sentry)
-
-	pool, err := waitForDB(config.DSN)
-	if err != nil {
-		logger.Fatal(err)
-		return nil, err
-	}
-
-	err = applyMigrations(config.Migrations)
-	if err != nil && err != migrate.ErrNoChange {
-		logger.Fatal(err)
-		return nil, err
-	}
-
-	rabbitMQ, err := waitForAMQP(config.RabbitMQ)
-	if err != nil {
-		logger.Fatal(err)
-		return nil, err
-	}
-
-	wg := &sync.WaitGroup{}
-
-	traffic, err := NewTraffic(wg, pool, rabbitMQ, logger, config.MonitoringQueue)
-	if err != nil {
-		logger.Fatal(err)
-		return nil, err
-	}
-
 	s := &Service{
 		config:    config,
-		logger:    logger,
-		db:        pool,
-		rabbitMQ:  rabbitMQ,
-		waitGroup: wg,
-		Traffic:   traffic,
+		logger:    util.NewLogger(config.Sentry),
+		db:        nil,
+		rabbitMQ:  nil,
+		waitGroup: &sync.WaitGroup{},
+		Traffic:   nil,
+	}
+	return s, nil
+}
+
+func (s *Service) initModel() error {
+	if s.Traffic != nil {
+		return nil
+	}
+
+	err := s.waitForDB()
+	if err != nil {
+		return err
+	}
+
+	traffic, err := NewTraffic(s.pool, s.logger)
+	if err != nil {
+		s.logger.Fatal(err)
+		return err
+	}
+
+	s.Traffic = traffic
+
+	return nil
+}
+
+func (s *Service) Migrate() error {
+	err := s.waitForDB()
+	if err != nil {
+		return err
+	}
+
+	err = applyMigrations(s.config.Migrations)
+	if err != nil && err != migrate.ErrNoChange {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) Serve() error {
+
+	err := s.initModel()
+	if err != nil {
+		return err
 	}
 
 	r := gin.New()
@@ -88,9 +99,9 @@ func NewService(config Config) (*Service, error) {
 	s.router = r
 
 	s.httpServer = &http.Server{Addr: s.config.HTTP.Listen, Handler: s.router}
-	wg.Add(1)
+	s.waitGroup.Add(1)
 	go func() {
-		defer wg.Done()
+		defer s.waitGroup.Done()
 		fmt.Println("HTTP server started")
 		err := s.httpServer.ListenAndServe()
 		if err != nil {
@@ -100,10 +111,83 @@ func NewService(config Config) (*Service, error) {
 		fmt.Println("HTTP server stopped")
 	}()
 
-	return s, nil
+	return nil
 }
 
-func waitForDB(dsn string) (*pgxpool.Pool, error) {
+func (s *Service) SchedulerHourly() error {
+	err := s.initModel()
+	if err != nil {
+		return err
+	}
+
+	deleted, err := s.Traffic.Monitoring.GC()
+	if err != nil {
+		s.logger.Fatal(err)
+		return err
+	}
+	fmt.Printf("`%v` items of monitoring deleted\n", deleted)
+
+	deleted, err = s.Traffic.Ban.GC()
+	if err != nil {
+		s.logger.Fatal(err)
+		return err
+	}
+	fmt.Printf("`%v` items of ban deleted\n", deleted)
+
+	err = s.Traffic.AutoWhitelist()
+	if err != nil {
+		s.logger.Warning(err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) SchedulerMinutely() error {
+	err := s.initModel()
+	if err != nil {
+		return err
+	}
+
+	err = s.Traffic.AutoBan()
+	if err != nil {
+		s.logger.Warning(err)
+	}
+
+	return nil
+}
+
+func (s *Service) ListenAMQP(quit chan bool) error {
+	err := s.initModel()
+	if err != nil {
+		return err
+	}
+
+	err = s.waitForAMQP()
+	if err != nil {
+		return err
+	}
+
+	s.waitGroup.Add(1)
+	go func() {
+		defer s.waitGroup.Done()
+		fmt.Println("Monitoring listener started")
+		err := s.Traffic.Monitoring.Listen(s.rabbitMQ, s.config.MonitoringQueue, quit)
+		if err != nil {
+			s.logger.Fatal(err)
+		}
+		fmt.Println("Monitoring listener stopped")
+	}()
+
+	return nil
+}
+
+func (s *Service) waitForDB() error {
+
+	if s.pool != nil {
+		return nil
+	}
+
 	start := time.Now()
 	timeout := 60 * time.Second
 
@@ -112,14 +196,14 @@ func waitForDB(dsn string) (*pgxpool.Pool, error) {
 	var pool *pgxpool.Pool
 	var err error
 	for {
-		pool, err = pgxpool.Connect(context.Background(), dsn)
+		pool, err = pgxpool.Connect(context.Background(), s.config.DSN)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		db, err := pool.Acquire(context.Background())
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		err = db.Conn().Ping(context.Background())
@@ -130,7 +214,7 @@ func waitForDB(dsn string) (*pgxpool.Pool, error) {
 		}
 
 		if time.Since(start) > timeout {
-			return nil, err
+			return err
 		}
 
 		fmt.Println(err)
@@ -138,10 +222,17 @@ func waitForDB(dsn string) (*pgxpool.Pool, error) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	return pool, nil
+	s.pool = pool
+
+	return nil
 }
 
-func waitForAMQP(url string) (*amqp.Connection, error) {
+func (s *Service) waitForAMQP() error {
+
+	if s.rabbitMQ != nil {
+		return nil
+	}
+
 	start := time.Now()
 	timeout := 60 * time.Second
 
@@ -150,21 +241,23 @@ func waitForAMQP(url string) (*amqp.Connection, error) {
 	var rabbitMQ *amqp.Connection
 	var err error
 	for {
-		rabbitMQ, err = amqp.Dial(url)
+		rabbitMQ, err = amqp.Dial(s.config.RabbitMQ)
 		if err == nil {
 			fmt.Println("Started.")
 			break
 		}
 
 		if time.Since(start) > timeout {
-			return nil, err
+			return err
 		}
 
 		fmt.Print(".")
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	return rabbitMQ, nil
+	s.rabbitMQ = rabbitMQ
+
+	return nil
 }
 
 func applyMigrations(config MigrationsConfig) error {
@@ -202,11 +295,6 @@ func (s *Service) Close() {
 		if err != nil {
 			panic(err) // failure/timeout shutting down the server gracefully
 		}
-	}
-
-	err := s.Traffic.Close()
-	if err != nil {
-		s.logger.Warning(err)
 	}
 
 	s.waitGroup.Wait()

@@ -5,10 +5,8 @@ import (
 	"github.com/autowp/traffic/util"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/streadway/amqp"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -16,12 +14,10 @@ const banByUserID = 9
 
 // Traffic Traffic
 type Traffic struct {
-	Monitoring          *Monitoring
-	Whitelist           *Whitelist
-	Ban                 *Ban
-	whitelistStopTicker chan bool
-	banStopTicker       chan bool
-	logger              *util.Logger
+	Monitoring *Monitoring
+	Whitelist  *Whitelist
+	Ban        *Ban
+	logger     *util.Logger
 }
 
 // AutobanProfile AutobanProfile
@@ -83,15 +79,15 @@ type TopItem struct {
 }
 
 // NewTraffic constructor
-func NewTraffic(wg *sync.WaitGroup, pool *pgxpool.Pool, rabbitMQ *amqp.Connection, logger *util.Logger, monitoringQueue string) (*Traffic, error) {
+func NewTraffic(pool *pgxpool.Pool, logger *util.Logger) (*Traffic, error) {
 
-	ban, err := NewBan(wg, pool, logger)
+	ban, err := NewBan(pool, logger)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
 	}
 
-	monitoring, err := NewMonitoring(wg, pool, rabbitMQ, monitoringQueue, logger)
+	monitoring, err := NewMonitoring(pool, logger)
 	if err != nil {
 		logger.Fatal(err)
 		return nil, err
@@ -109,51 +105,6 @@ func NewTraffic(wg *sync.WaitGroup, pool *pgxpool.Pool, rabbitMQ *amqp.Connectio
 		Ban:        ban,
 		logger:     logger,
 	}
-
-	whitelistTicker := time.NewTicker(whitelistPeriod)
-	s.whitelistStopTicker = make(chan bool)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		fmt.Println("AutoWhitelist scheduler started")
-	loop:
-		for {
-			select {
-			case <-whitelistTicker.C:
-				err := s.AutoWhitelist()
-				if err != nil {
-					logger.Warning(err)
-				}
-			case <-s.whitelistStopTicker:
-				whitelistTicker.Stop()
-				break loop
-			}
-		}
-		fmt.Println("AutoWhitelist scheduler stopped")
-	}()
-
-	banTicker := time.NewTicker(banPeriod)
-	s.banStopTicker = make(chan bool)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		fmt.Println("AutoBan scheduler started")
-	loop:
-		for {
-			select {
-			case <-banTicker.C:
-				err := s.AutoBan()
-				if err != nil {
-					logger.Warning(err)
-				}
-			case <-s.banStopTicker:
-				banTicker.Stop()
-				break loop
-			}
-		}
-
-		fmt.Println("AutoBan scheduler stopped")
-	}()
 
 	return s, nil
 }
@@ -417,23 +368,4 @@ func (s *Traffic) SetupRouter(r *gin.Engine) {
 
 		c.JSON(http.StatusOK, ban)
 	})
-}
-
-// Close Destructor
-func (s *Traffic) Close() error {
-	s.banStopTicker <- true
-	close(s.banStopTicker)
-	s.whitelistStopTicker <- true
-	close(s.whitelistStopTicker)
-
-	err := s.Ban.Close()
-	if err != nil {
-		s.logger.Warning(err)
-	}
-	err = s.Monitoring.Close()
-	if err != nil {
-		s.logger.Warning(err)
-	}
-
-	return nil
 }
